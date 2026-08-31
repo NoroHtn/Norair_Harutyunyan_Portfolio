@@ -32,7 +32,7 @@ index.html                     the whole page, one file
 assets/css/site.css            hand-authored, mobile-first
 assets/js/site.js              progressive enhancement only
 assets/fonts/*.woff2           Syne (display) + Manrope (body), self-hosted
-games/*.png + *.webp           22 game thumbnails, WebP with PNG fallback
+games/*.png + *.webp           22 game thumbnails, 302/604/906 WebP + PNG fallback
 media/*.mp4 + *-poster.webp    4 clips, two rungs each, plus poster frames
 og-cover.png                   1200x630 share card
 Norair_Harutyunyan_Resume.pdf  linked from the hero and the profile band
@@ -56,19 +56,42 @@ Encoded with `libx264`, `-movflags +faststart`, closed GOP every 60 frames so th
 loop restarts without a stall. The three silent clips carry no audio track at
 all. Regenerate with `D:/_norair_src/encode.sh` if the sources change.
 
-Thumbnails are the ceiling of what exists: Pascal Gaming ships these tiles at
-302x302, and their own asset is literally named `302X302 Avinho R10.png`. There is
-no higher-resolution original to fetch. The grid shows them at about 452 CSS px,
-so the browser was upscaling 302 to 908 device pixels on a retina screen, which
-is why they looked soft.
+## Thumbnail pipeline
 
-Each tile now ships twice: the native 302 at WebP q88, and a 604 built with
-Lanczos plus a light unsharp pass at q82, wired through `srcset` with width
-descriptors. The browser picks one, never both: 0.56 MB for the small ladder,
-1.09 MB for the large one. A 604 render is still an upscale, but a baked Lanczos
-upscale with edge recovery is visibly sharper than the browser inventing the same
-pixels at draw time. Going further would be inventing detail the source does not
-have.
+Thumbnails used to be the one asset with no headroom. The first build had only
+the 302x302 tiles Pascal Gaming ships — their own file is literally named
+`302X302 Avinho R10.png` — so the 604 rung was a baked Lanczos upscale rather
+than real detail. Those tiles had also been cut to square from wider key art,
+which quietly clipped the wordmark off the edge of Mega Plinko, ChartX, Juicy
+Storm and a dozen others.
+
+Norair supplied the 1254x1254 masters, which closes both problems at once. Every
+tile is now the full square composition with nothing cropped, and the ladder is
+three real rungs cut from the master instead of two part-invented ones:
+
+| Rung | Width | Quality | Ladder total |
+|---|---|---|---|
+| `name.webp` | 302 | q84 | 0.59 MB |
+| `name@2x.webp` | 604 | q82 | 1.51 MB |
+| `name@3x.webp` | 906 | q80 | 2.37 MB |
+
+Each rung is a Lanczos downscale plus an unsharp pass sized to the reduction:
+heaviest at 302, where a 4.15x drop softens the most, lightest at 906. The
+browser picks exactly one rung per tile, never the whole ladder.
+
+`sizes` now names the fixed 476px a tile occupies once the shell caps at 92rem,
+so a wide desktop stops fetching a 906 for a slot that never paints wider than
+476. Below that cap the old percentage hints still apply.
+
+The PNG inside each `<picture>` stays as the no-WebP fallback at 302, and no
+browser that supports WebP ever requests it.
+
+Regenerate the ladder with `D:/_norair_src/encode-thumbs.sh`, or directly:
+
+```sh
+ffmpeg -i master.PNG -vf "scale=906:906:flags=lanczos,unsharp=3:3:0.35:3:3:0.0" \
+  -c:v libwebp -preset picture -compression_level 6 -quality 80 slug@3x.webp
+```
 
 ## How the page behaves
 
