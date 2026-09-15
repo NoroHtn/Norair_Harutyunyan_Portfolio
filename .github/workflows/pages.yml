@@ -27,8 +27,25 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # The site is plain static files. index.html links its own CSS and JS,
-      # so there is nothing to build and nothing to rewrite at deploy time.
+      - name: Generate updated résumé PDF
+        shell: bash
+        run: |
+          BROWSER="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$BROWSER" ]; then
+            echo "No Chromium-based browser found on runner"
+            exit 1
+          fi
+          "$BROWSER" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --no-pdf-header-footer \
+            --print-to-pdf="$GITHUB_WORKSPACE/Norair_Harutyunyan_Resume.pdf" \
+            "file://$GITHUB_WORKSPACE/resume.html"
+          test -s "$GITHUB_WORKSPACE/Norair_Harutyunyan_Resume.pdf"
+          ls -lh "$GITHUB_WORKSPACE/Norair_Harutyunyan_Resume.pdf"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
