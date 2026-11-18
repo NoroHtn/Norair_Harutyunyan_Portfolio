@@ -25,8 +25,12 @@ All tokens live at the top of `assets/css/site.css`.
 | `--line-strong` | `#f0ede74d` | control borders |
 
 One accent, used identically everywhere: ruby marks the current nav item, the
-second line of every section title, index numbers, award years, and the primary
-button. Gold appears exactly once. Nothing else is saturated except the artwork.
+second line of every section title, index numbers, award years, the primary
+button, the "New" mark, the pipeline rail, and the pip row under the pointer.
+Gold appears exactly once. Nothing else is saturated except the artwork.
+
+The "New" mark sets ink on ruby rather than white on ruby: it is small text, and
+ink clears 4.5:1 where white does not.
 
 `--silver-dim` was lifted from `#767b84` to `#8a8e97` so meta text clears 4.5:1
 on `--ink`.
@@ -57,9 +61,13 @@ block; in the hero and the contact title the middle word is stroke-only
 
 - `--content: min(100% - 1.5rem, 92rem)`, widening to `min(100% - 2rem, 92rem)`
   at 900px.
-- Mobile-first. Three breakpoints, all `min-width`: **560px** (grid goes to two
-  columns), **900px** (desktop header, side-by-side splits, two-column stat),
-  **1100px** (three-column grid, three-column capability set).
+- Mobile-first. Five breakpoints, all `min-width`: **560px** (roomier tiles,
+  rail cards go side by side), **760px** (quick view goes side by side),
+  **900px** (desktop header, hero reels leave the flow, side-by-side splits,
+  pipeline tabs on a rail), **1100px** (three-column grid and capability set),
+  **1280px** (four-column grid).
+- The work grid is two columns from the smallest phone. Twenty-eight tiles in a
+  single column was thirteen screens of scrolling.
 - Corner radius: one scale. `--radius` (1rem, 1.1rem at desktop) for tiles and
   panels; full pill for every control. Nothing in between.
 - Section rhythm via `clamp()` so vertical space compresses on small screens
@@ -73,8 +81,26 @@ block; in the hero and the contact title the middle word is stroke-only
   900px. Inverts to `.is-light` over the Profile band.
 - **Featured block.** Index, meta, title, copy, an underlined "Open game" link,
   then a full-bleed stage. Used twice, for the two titles with cinematics.
-- **Tile.** Square art over a bar carrying index, title and a pill. Square
-  reserved in CSS; a shimmer holds it until the image decodes.
+- **Hero reels.** Fifteen key-art tiles on three strips. Two tilted rows in the
+  flow on a phone; from 900px three columns on a plane rotated in 3D, masked so
+  it fades into the title on the left and into the ground at top and bottom.
+- **Headline numbers.** Four figures in a band of their own under the hero, so
+  the art wall runs to the hero's edge and the numbers sit on clean ground.
+- **Rail card.** Latest releases. Square art, tag, title, two-line description,
+  three specs, a pill. Lit from behind by a blurred copy of its own art.
+- **Filter chips.** Toggle buttons (`aria-pressed`), each with its count.
+- **Tile.** Square art over a bar carrying index, title, type and year, and a
+  pill from 560px. Square reserved in CSS; a shimmer holds it until the image
+  decodes.
+- **Quick view.** A native `<dialog>`. Art on the left, facts on the right,
+  stacked on a phone. Next and previous step through the filtered set.
+- **Pipeline.** A ticker of stage names, then six stages. Pills above one panel
+  on a phone; from 900px a vertical rail with a node per stage and the open
+  stage beside it. Panels share one grid cell so the height never changes.
+- **Team roster.** One row per discipline: count, name, a pip per person, what
+  they deliver.
+- **Career list.** In the light band. Period, role, company; a dot marks a role
+  that is current.
 - **Stage.** Poster `<img>` under a `<video>`, a caption chip, and a clip control
   that is hidden until hover or focus.
 - **Split.** Text against a portrait stage; the recognition section flips it.
@@ -87,15 +113,24 @@ Custom cubic-beziers only, never the CSS keywords.
 | Token | Curve | Used for |
 |---|---|---|
 | `--ease-out-quart` | `cubic-bezier(.25,1,.5,1)` | default, all state changes |
-| `--ease-out-expo` | `cubic-bezier(.16,1,.3,1)` | reveals, focus pull, image scale |
+| `--ease-out-expo` | `cubic-bezier(.16,1,.3,1)` | reveals, focus pull, image scale, line rise, tilt release |
+| `--ease-reel` | `cubic-bezier(.1,.75,.15,1)` | anything that behaves like a reel coming to rest: the hero spin-in, the rolling numbers |
 
 | Duration | Where |
 |---|---|
 | `--in` 150ms | hover on |
 | `--out` 220ms | hover off, all control state |
 | `--enter` 260ms | header theme change, skip link |
+| 120ms | tile tilt while the pointer is moving (linear, so it tracks) |
 | 450ms | tile image scale, reveal |
+| 500ms | quick view in; filter re-layout |
+| 600ms | tile tilt release |
 | 850ms | stage focus pull |
+| 950ms | heading line rise |
+| 1.5s | number roll, 120ms apart per digit |
+| 1.7 to 2s | hero reels spin in, 140 to 160ms apart |
+| 6.5s | pipeline clock per stage |
+| 44 to 70s | one full turn of a hero reel |
 
 Hover is faster on than off so nothing snaps away. Every hover rule sits inside
 `@media (hover:hover) and (pointer:fine)` so it cannot fire on a tap. Press
@@ -107,6 +142,12 @@ Reveals are staggered 40ms apart within a row, capped at six steps, and gated
 behind `.js` so the page is never blank without scripts. A four second safety
 timer reveals everything if the observer never fires.
 
+Every moving thing answers to one of three causes, and nothing moves without
+one: **arrival** (reveals, line rise, the reel spin-in, the number roll, the
+pips), **the visitor** (tilt, highlight, magnet, drag, the ticker's pace, the
+plane's lean), or **a clock the visitor can see and stop** (the pipeline bar).
+The Motion switch and `prefers-reduced-motion` turn all three off.
+
 ## Effects
 
 - **Hero canvas.** WebGL, a domain-warped fbm haze in crimson to ruby, anchored
@@ -115,7 +156,22 @@ timer reveals everything if the observer never fires.
   effect halves its resolution once frames pass 34ms and removes itself entirely
   if that continues. Absent under reduced motion.
 - **Backdrop blur** is only ever on fixed or sticky surfaces: the header, the
-  caption chips, the clip controls. Never on scrolling content.
+  caption chips, the clip controls, the quick-view backdrop. Never on scrolling
+  content.
+- **Hero plane.** `perspective: 70rem` on the container, then
+  `rotateX(15deg) rotateY(-24deg) rotateZ(7deg)` on the plane. The pointer adds
+  at most 3 degrees on X and 4.5 on Y through two custom properties, with a
+  900ms transition doing the smoothing, so there is no per-frame script.
+- **Tile tilt.** `perspective(60rem)` with up to 4.5 degrees either way, and a
+  `soft-light` radial highlight at the pointer.
+- **Ambient glow.** Rail cards and the quick view sit on a blurred, saturated
+  copy of their own art at about a third opacity. It is the only place colour
+  leaves the artwork, and it is the artwork's own colour.
+- **Rolling numbers.** Per-digit strips translated with one transition each. The
+  reference to a reel is deliberate; it is the one piece of iGaming vocabulary
+  the interface borrows.
+- **View transitions.** Filtering names each tile for the length of one
+  transition, so the browser animates the re-layout. No library, no FLIP code.
 
 ## Deliberate deviations from the reference build
 
@@ -127,4 +183,5 @@ timer reveals everything if the observer never fires.
   at a staging host.
 - Em dashes in prose are replaced by commas or periods; award category separators
   become parentheses or a comma. Award names themselves are unchanged.
-- Nav carries Motion and Contact in addition to Work, Expertise and Profile.
+- Nav carries Work, Process, Team, Motion, Profile and Contact. The wordmark
+  beside the monogram is hidden between 900 and 1100px to make room for them.

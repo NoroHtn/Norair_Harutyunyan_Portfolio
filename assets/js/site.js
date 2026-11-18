@@ -3,7 +3,7 @@
 
    Progressive enhancement only. With JavaScript disabled the
    page is fully readable: every section visible, every poster
-   frame shown, no overlay covering anything.
+   frame shown, every title a plain link, no overlay anywhere.
    ============================================================ */
 (function () {
   'use strict';
@@ -11,11 +11,23 @@
   var root = document.documentElement;
   var body = document.body;
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var finePointer = window.matchMedia('(hover:hover) and (pointer:fine)');
+
+  function all(sel, scope) { return [].slice.call((scope || document).querySelectorAll(sel)); }
+
+  /* ---------- motion state, shared by everything below ---------- */
+  var stored = null;
+  try { stored = localStorage.getItem('nh-motion'); } catch (e) { /* private mode */ }
+  var motionOn = stored === null ? !reduced.matches : stored === 'on';
+  var motionSubs = [];                       /* called whenever the switch changes */
+  function lively() { return motionOn && !reduced.matches; }
 
   /* ============================================================
      1. BOOT SCREEN
      Held until the fonts have resolved and the first paintable
-     assets are in, so nobody watches the type re-flow.
+     assets are in, so nobody watches the type re-flow. Removing
+     .is-booting is also what starts the hero: the title lines
+     rise and the reels spin in.
      ============================================================ */
   (function boot() {
     var el = document.getElementById('boot');
@@ -123,7 +135,7 @@
   }
 
   /* ---------- 5. scroll spy ---------- */
-  var spyLinks = [].slice.call(document.querySelectorAll('#primary-nav a[href^="#"]'));
+  var spyLinks = all('#primary-nav a[href^="#"]');
   var spyTargets = spyLinks
     .map(function (a) { return document.querySelector(a.getAttribute('href')); })
     .filter(Boolean);
@@ -140,22 +152,27 @@
   }
 
   /* ---------- 6. reveal on scroll, staggered per row ---------- */
-  var reveals = [].slice.call(document.querySelectorAll('.reveal'));
+  var reveals = all('.reveal');
+  function settle(el) {
+    /* once a tile has arrived its stagger delay must not slow the tilt */
+    if (el.classList.contains('tile')) setTimeout(function () { el.classList.add('is-settled'); }, 900);
+  }
   if (reveals.length && 'IntersectionObserver' in window) {
     var ro = new IntersectionObserver(function (entries) {
       entries.filter(function (en) { return en.isIntersecting; })
         .forEach(function (en, i) {
           en.target.style.setProperty('--stagger', Math.min(i, 5) * 40 + 'ms');
           en.target.classList.add('is-in');
+          settle(en.target);
           ro.unobserve(en.target);
         });
     }, { rootMargin: '0px 0px -6% 0px', threshold: 0.04 });
     reveals.forEach(function (el) { ro.observe(el); });
     setTimeout(function () {
-      reveals.forEach(function (el) { el.classList.add('is-in'); });
+      reveals.forEach(function (el) { el.classList.add('is-in'); settle(el); });
     }, 4000);
   } else {
-    reveals.forEach(function (el) { el.classList.add('is-in'); });
+    reveals.forEach(function (el) { el.classList.add('is-in'); settle(el); });
   }
 
   /* ============================================================
@@ -164,19 +181,19 @@
      the art is only faded in once it has actually decoded. No
      half-painted thumbnails, no shift.
      ============================================================ */
-  [].slice.call(document.querySelectorAll('.tile__art')).forEach(function (slot) {
+  all('.tile__art').forEach(function (slot) {
     var img = slot.querySelector('img');
     if (!img) return;
-    var settle = function () { slot.classList.add('is-loaded'); };
+    var settleArt = function () { slot.classList.add('is-loaded'); };
     if (img.complete && img.naturalWidth > 0) {
-      settle();
+      settleArt();
     } else {
       img.addEventListener('load', function () {
-        if (img.decode) img.decode().then(settle).catch(settle);
-        else settle();
+        if (img.decode) img.decode().then(settleArt).catch(settleArt);
+        else settleArt();
       }, { once: true });
       /* a missing file must not leave a shimmer running forever */
-      img.addEventListener('error', settle, { once: true });
+      img.addEventListener('error', settleArt, { once: true });
     }
   });
 
@@ -186,11 +203,7 @@
      starts full. Each stage arrives soft and pulls into focus,
      which also covers the hand-off from poster to first frame.
      ============================================================ */
-  var stages = [].slice.call(document.querySelectorAll('.stage[data-video]'));
-
-  var stored = null;
-  try { stored = localStorage.getItem('nh-motion'); } catch (e) { /* private mode */ }
-  var motionOn = stored === null ? !reduced.matches : stored === 'on';
+  var stages = all('.stage[data-video]');
 
   var toggle = document.querySelector('.motion-toggle');
   var toggleLabel = toggle && toggle.querySelector('[data-label]');
@@ -327,6 +340,7 @@
       else if (inView(stage)) play(stage, video);
     });
     if (hero) hero.setEnabled(motionOn);
+    motionSubs.forEach(function (fn) { fn(); });
   }
 
   if (toggle) {
@@ -358,7 +372,7 @@
   });
 
   /* ---------- 11. year stamp ---------- */
-  var years = [].slice.call(document.querySelectorAll('[data-year]'));
+  var years = all('[data-year]');
   if (years.length) {
     var y = String(new Date().getFullYear());
     years.forEach(function (el) { el.textContent = y; });
@@ -545,7 +559,7 @@
 
     addEventListener('resize', function () { if (running) size(); }, { passive: true });
 
-    if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
+    if (finePointer.matches) {
       addEventListener('pointermove', function (e) {
         ptr.tx = (e.clientX / innerWidth) * 2 - 1;
         ptr.ty = 1 - (e.clientY / innerHeight) * 2;
@@ -584,6 +598,584 @@
   if (document.readyState === 'complete') setTimeout(scheduleHero, 250);
   else addEventListener('load', function () { setTimeout(scheduleHero, 250); }, { once: true });
   setTimeout(heroLater, 2200);
+
+  /* ============================================================
+     13. HERO REELS
+     The strips drift in CSS. Script adds two things: the plane
+     leans a few degrees toward the pointer, and the drift stops
+     while the hero is off screen.
+     ============================================================ */
+  (function reels() {
+    var heroEl = document.querySelector('.hero');
+    var plane = document.querySelector('.hero__plane');
+    if (!heroEl || !plane) return;
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (en) {
+        heroEl.classList.toggle('is-away', !en[0].isIntersecting);
+      }, { threshold: 0 }).observe(heroEl);
+    }
+
+    if (!finePointer.matches) return;
+    var tick = false, px = 0, py = 0;
+    heroEl.addEventListener('pointermove', function (e) {
+      if (!lively()) return;
+      var r = heroEl.getBoundingClientRect();
+      px = ((e.clientY - r.top) / r.height - 0.5) * -6;     /* rotateX, degrees */
+      py = ((e.clientX - r.left) / r.width - 0.5) * 9;      /* rotateY, degrees */
+      if (tick) return;
+      tick = true;
+      requestAnimationFrame(function () {
+        plane.style.setProperty('--px', px.toFixed(2) + 'deg');
+        plane.style.setProperty('--py', py.toFixed(2) + 'deg');
+        tick = false;
+      });
+    }, { passive: true });
+    heroEl.addEventListener('pointerleave', function () {
+      plane.style.removeProperty('--px');
+      plane.style.removeProperty('--py');
+    });
+  })();
+
+  /* ============================================================
+     14. ROLLING NUMBERS
+     Each digit sits on its own strip and rolls to its value the
+     first time it is seen. The plain number stays in the DOM for
+     screen readers; the strips are decoration.
+     ============================================================ */
+  (function rolls() {
+    var els = all('[data-roll]');
+    if (!els.length) return;
+
+    els.forEach(function (el) {
+      var txt = el.getAttribute('data-roll');
+      var sr = document.createElement('span');
+      sr.className = 'sr';
+      sr.textContent = txt;
+      var roll = document.createElement('span');
+      roll.className = 'roll';
+      roll.setAttribute('aria-hidden', 'true');
+
+      var digitIndex = 0;
+      txt.split('').forEach(function (ch) {
+        if (!/\d/.test(ch)) {
+          var plain = document.createElement('span');
+          plain.textContent = ch;
+          roll.appendChild(plain);
+          return;
+        }
+        var cell = document.createElement('span');
+        cell.className = 'roll__d';
+        var strip = document.createElement('span');
+        strip.className = 'roll__s';
+        /* two full turns of the wheel, so every digit travels before it lands */
+        for (var i = 0; i < 20; i++) {
+          var d = document.createElement('span');
+          d.textContent = String(i % 10);
+          strip.appendChild(d);
+        }
+        strip.style.setProperty('--to', String(10 + Number(ch)));
+        strip.style.setProperty('--d', String(digitIndex++));
+        cell.appendChild(strip);
+        roll.appendChild(cell);
+      });
+
+      el.textContent = '';
+      el.appendChild(sr);
+      el.appendChild(roll);
+    });
+
+    var land = function (el) { el.classList.add('is-rolled'); };
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          /* let the boot screen clear before the first numbers move */
+          setTimeout(function () { land(en.target); }, root.classList.contains('is-booting') ? 900 : 120);
+          io.unobserve(en.target);
+        });
+      }, { threshold: 0.6 });
+      els.forEach(function (el) { io.observe(el); });
+      setTimeout(function () { els.forEach(land); }, 6000);
+    } else {
+      els.forEach(land);
+    }
+  })();
+
+  /* ============================================================
+     15. WORK GRID: tilt, "new" marks, filters
+     ============================================================ */
+  var grid = document.getElementById('grid');
+  var tiles = all('.tile', grid || document);
+
+  /* a title released in the last three months is marked as new;
+     the mark retires itself, nobody has to remember to remove it */
+  (function marks() {
+    var now = new Date();
+    var nowMonths = now.getFullYear() * 12 + now.getMonth();
+    tiles.forEach(function (tile) {
+      var m = /^(\d{4})-(\d{2})$/.exec(tile.getAttribute('data-date') || '');
+      if (!m) return;
+      var age = nowMonths - (Number(m[1]) * 12 + Number(m[2]) - 1);
+      if (age < 0 || age > 3) return;
+      var art = tile.querySelector('.tile__art');
+      if (!art) return;
+      var tag = document.createElement('span');
+      tag.className = 'tile__new';
+      tag.textContent = 'New';
+      art.appendChild(tag);
+    });
+  })();
+
+  /* the tile leans toward the pointer and a highlight follows it */
+  if (finePointer.matches) {
+    tiles.forEach(function (tile) {
+      var tick = false, ev = null;
+      tile.addEventListener('pointermove', function (e) {
+        if (!lively()) return;
+        ev = e;
+        if (tick) return;
+        tick = true;
+        requestAnimationFrame(function () {
+          tick = false;
+          var r = tile.getBoundingClientRect();
+          var x = (ev.clientX - r.left) / r.width;
+          var y = (ev.clientY - r.top) / r.height;
+          tile.classList.add('is-tilting');
+          tile.style.setProperty('--ry', ((x - 0.5) * 9).toFixed(2) + 'deg');
+          tile.style.setProperty('--rx', ((0.5 - y) * 9).toFixed(2) + 'deg');
+          tile.style.setProperty('--gx', (x * 100).toFixed(1) + '%');
+          tile.style.setProperty('--gy', (y * 100).toFixed(1) + '%');
+        });
+      }, { passive: true });
+      tile.addEventListener('pointerleave', function () {
+        tile.classList.remove('is-tilting');
+        tile.style.removeProperty('--rx');
+        tile.style.removeProperty('--ry');
+      });
+    });
+  }
+
+  /* filters */
+  var filterBar = document.querySelector('.filters');
+  var chips = all('.chip');
+  var countEl = document.querySelector('[data-count]');
+  var activeFilter = 'all';
+
+  function visibleTiles() {
+    return tiles.filter(function (t) { return !t.hidden; });
+  }
+
+  function setFilter(cat) {
+    activeFilter = cat;
+    var shown = 0;
+    tiles.forEach(function (tile) {
+      var on = cat === 'all' || tile.getAttribute('data-cat') === cat;
+      tile.hidden = !on;
+      if (on) {
+        shown++;
+        /* a tile that was never scrolled to must not stay invisible */
+        tile.classList.add('is-in', 'is-settled');
+      }
+    });
+    chips.forEach(function (c) {
+      c.setAttribute('aria-pressed', c.getAttribute('data-filter') === cat ? 'true' : 'false');
+    });
+    if (countEl) countEl.textContent = String(shown);
+  }
+
+  if (filterBar && chips.length && tiles.length) {
+    filterBar.hidden = false;
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var cat = chip.getAttribute('data-filter');
+        if (cat === activeFilter) return;
+        /* Where the browser supports it, each tile is named for the length of
+           one transition so it glides to its new slot instead of jumping. */
+        if (document.startViewTransition && lively()) {
+          tiles.forEach(function (t, i) { t.style.viewTransitionName = 'tile-' + i; });
+          var vt = document.startViewTransition(function () { setFilter(cat); });
+          var clear = function () { tiles.forEach(function (t) { t.style.viewTransitionName = ''; }); };
+          vt.finished.then(clear, clear);
+        } else {
+          setFilter(cat);
+        }
+      });
+    });
+  }
+
+  /* ============================================================
+     16. QUICK VIEW
+     A tile is a plain link to its game. With script, a click opens
+     the details instead: the art at full size, the specifications,
+     both links, and next/previous through whatever is filtered.
+     Modified clicks (new tab, new window) still follow the link.
+     ============================================================ */
+  var qv = document.getElementById('qv');
+  var openQuickView = null;
+
+  if (qv && typeof qv.showModal === 'function' && tiles.length) {
+    var q = function (name) { return qv.querySelector('[data-qv="' + name + '"]'); };
+    var qvImg = qv.querySelector('.qv__img');
+    var qvGlow = qv.querySelector('.qv__glow');
+    var qvList = [], qvIndex = 0, qvOpener = null, qvBusy = false;
+
+    var fill = function (tile) {
+      var d = tile.dataset;
+      var name = tile.querySelector('h3').textContent;
+      var img = tile.querySelector('img');
+      var source = tile.querySelector('source');
+
+      q('no').textContent = tile.querySelector('.tile__no').textContent;
+      q('meta').textContent = d.type + ' · ' + d.released;
+      q('name').textContent = name;
+      q('desc').textContent = d.desc || '';
+
+      var specs = q('specs');
+      specs.textContent = '';
+      [['Layout', d.layout], ['Volatility', d.vol], ['Max win', d.max], ['Released', d.released]]
+        .forEach(function (row) {
+          if (!row[1]) return;
+          var wrap = document.createElement('div');
+          var dt = document.createElement('dt');
+          var dd = document.createElement('dd');
+          dt.textContent = row[0];
+          dd.textContent = row[1];
+          wrap.appendChild(dt);
+          wrap.appendChild(dd);
+          specs.appendChild(wrap);
+        });
+
+      var demo = q('demo'), page = q('page');
+      demo.hidden = !d.demo;
+      if (d.demo) demo.href = d.demo; else demo.removeAttribute('href');
+      page.href = d.page;
+      page.classList.toggle('btn--primary', !d.demo);
+
+      qvImg.sizes = '(min-width:760px) 31rem, 92vw';
+      qvImg.srcset = source ? source.srcset : '';
+      qvImg.src = img.getAttribute('src');
+      qvImg.alt = img.alt;
+      qvGlow.src = img.currentSrc || img.getAttribute('src');
+
+      q('count').textContent = (qvIndex + 1) + ' of ' + qvList.length;
+    };
+
+    var go = function (step) {
+      if (qvBusy || qvList.length < 2) return;
+      qvIndex = (qvIndex + step + qvList.length) % qvList.length;
+      if (!lively()) { fill(qvList[qvIndex]); return; }
+      qvBusy = true;
+      qv.style.setProperty('--dir', String(-step));
+      qv.classList.add('is-swapping');
+      setTimeout(function () {
+        fill(qvList[qvIndex]);
+        qv.style.setProperty('--dir', String(step));
+        /* two frames so the incoming copy starts from the far side */
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            qv.classList.remove('is-swapping');
+            qvBusy = false;
+          });
+        });
+      }, 200);
+    };
+
+    var shut = function () {
+      if (!qv.open || qv.classList.contains('is-closing')) return;
+      var finish = function () {
+        qv.classList.remove('is-closing');
+        qv.close();
+      };
+      if (!lively()) { finish(); return; }
+      qv.classList.add('is-closing');
+      setTimeout(finish, 200);
+    };
+
+    openQuickView = function (tile, opener) {
+      qvList = visibleTiles();
+      if (qvList.indexOf(tile) === -1) qvList = tiles.slice();
+      qvIndex = qvList.indexOf(tile);
+      qvOpener = opener || tile;
+      fill(tile);
+      root.classList.add('is-modal');
+      qv.showModal();
+    };
+
+    qv.addEventListener('close', function () {
+      root.classList.remove('is-modal');
+      if (qvOpener && qvOpener.focus) qvOpener.focus({ preventScroll: true });
+    });
+    /* Escape: let the dialog close through the same exit as the button */
+    qv.addEventListener('cancel', function (e) { e.preventDefault(); shut(); });
+    /* a click on the backdrop lands on the dialog element itself */
+    qv.addEventListener('click', function (e) {
+      if (e.target === qv || e.target.closest('[data-qv-close]')) { shut(); return; }
+      var stepBtn = e.target.closest('[data-qv-go]');
+      if (stepBtn) go(Number(stepBtn.getAttribute('data-qv-go')));
+    });
+    qv.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+    });
+
+    var plainClick = function (e) {
+      return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+    };
+    /* the pill stops promising a new tab once it opens the details instead */
+    var relabel = function (el) {
+      el.setAttribute('aria-haspopup', 'dialog');
+      var label = el.querySelector('[data-go]');
+      if (!label) return;
+      label.textContent = 'Details';
+      var use = label.parentNode.querySelector('use');
+      if (use) use.setAttribute('href', '#i-plus');
+    };
+    openQuickView.relabel = relabel;
+
+    tiles.forEach(function (tile) {
+      relabel(tile);
+      tile.addEventListener('click', function (e) {
+        if (!plainClick(e)) return;
+        e.preventDefault();
+        openQuickView(tile, tile);
+      });
+    });
+  }
+
+  /* ============================================================
+     17. LATEST RELEASES RAIL
+     ============================================================ */
+  (function rail() {
+    var el = document.getElementById('rail');
+    if (!el) return;
+    var cards = all('.rcard', el);
+    var ctl = document.querySelector('.rail-ctl');
+    var fillBar = document.querySelector('.rail-bar span');
+    var prev = ctl && ctl.querySelector('[data-rail="prev"]');
+    var next = ctl && ctl.querySelector('[data-rail="next"]');
+
+    var sync = function () {
+      var max = el.scrollWidth - el.clientWidth;
+      var seen = el.scrollWidth > 0 ? (el.scrollLeft + el.clientWidth) / el.scrollWidth : 1;
+      if (fillBar) fillBar.style.setProperty('--p', Math.min(1, seen).toFixed(4));
+      if (prev) prev.disabled = el.scrollLeft <= 2;
+      if (next) next.disabled = el.scrollLeft >= max - 2;
+      if (ctl) ctl.hidden = max <= 2;
+    };
+
+    var step = function (dir) {
+      var card = cards[0];
+      var gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+      var by = card ? card.getBoundingClientRect().width + gap : el.clientWidth * 0.8;
+      el.scrollBy({ left: dir * by, behavior: lively() ? 'smooth' : 'auto' });
+    };
+    if (prev) prev.addEventListener('click', function () { step(-1); });
+    if (next) next.addEventListener('click', function () { step(1); });
+
+    var tick = false;
+    el.addEventListener('scroll', function () {
+      if (tick) return;
+      tick = true;
+      requestAnimationFrame(function () { tick = false; sync(); });
+    }, { passive: true });
+    addEventListener('resize', sync, { passive: true });
+    sync();
+
+    /* drag to scroll with a mouse; touch already scrolls natively */
+    var down = false, moved = false, startX = 0, startLeft = 0;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      down = true; moved = false;
+      startX = e.clientX; startLeft = el.scrollLeft;
+    });
+    addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 6) { moved = true; el.classList.add('is-dragging'); }
+      if (moved) el.scrollLeft = startLeft - dx;
+    }, { passive: true });
+    var release = function () {
+      if (!down) return;
+      down = false;
+      if (moved) {
+        el.classList.remove('is-dragging');
+        /* swallow the click that ends a drag, so a card does not open */
+        setTimeout(function () { moved = false; }, 0);
+      }
+    };
+    addEventListener('pointerup', release);
+    addEventListener('pointercancel', release);
+    /* an image inside a link would otherwise start a native drag */
+    el.addEventListener('dragstart', function (e) { e.preventDefault(); });
+
+    cards.forEach(function (card) {
+      var tile = grid && grid.querySelector('.tile[data-game="' + card.getAttribute('data-ref') + '"]');
+      if (tile && openQuickView) openQuickView.relabel(card);
+      card.addEventListener('click', function (e) {
+        if (moved) { e.preventDefault(); return; }
+        if (!tile || !openQuickView) return;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        openQuickView(tile, card);
+      });
+    });
+  })();
+
+  /* ============================================================
+     18. PIPELINE
+     The ticker moves at a walking pace and picks up speed with the
+     scroll. The stages are tabs; while nobody has touched them they
+     advance on their own, and the first click hands control over.
+     ============================================================ */
+  (function ticker() {
+    var row = document.querySelector('.ticker__row');
+    if (!row || !('IntersectionObserver' in window)) return;
+    var x = 0, raf = 0, onScreen = false, lastY = window.scrollY, speed = 0, dir = 1, last = 0;
+
+    var frame = function (now) {
+      raf = 0;
+      if (!onScreen || !lively() || document.hidden) return;
+      var dt = Math.min(64, now - (last || now));
+      last = now;
+      var sy = window.scrollY;
+      var delta = sy - lastY;
+      lastY = sy;
+      if (delta) dir = delta > 0 ? 1 : -1;
+      /* scroll adds to the pace, then it eases back to a stroll */
+      speed += (Math.min(Math.abs(delta), 60) * 0.045 - speed) * 0.12;
+      var half = row.scrollWidth / 2;
+      x -= dir * (0.035 + speed * 0.05) * dt;
+      if (x <= -half) x += half;
+      if (x > 0) x -= half;
+      row.style.transform = 'translate3d(' + x.toFixed(1) + 'px,0,0)';
+      raf = requestAnimationFrame(frame);
+    };
+    var kick = function () { if (!raf) { last = 0; lastY = window.scrollY; raf = requestAnimationFrame(frame); } };
+
+    new IntersectionObserver(function (en) {
+      onScreen = en[0].isIntersecting;
+      if (onScreen) kick();
+    }, { threshold: 0 }).observe(row.parentNode);
+    motionSubs.push(kick);
+    document.addEventListener('visibilitychange', kick);
+  })();
+
+  (function pipeline() {
+    var pipe = document.querySelector('[data-pipe]');
+    if (!pipe) return;
+    var tabs = all('.pipe__tab', pipe);
+    var panels = all('.pipe__panel', pipe);
+    var tabList = pipe.querySelector('.pipe__tabs');
+    var railFill = pipe.querySelector('.pipe__rail span');
+    if (!tabs.length || tabs.length !== panels.length) return;
+
+    var current = -1, manual = false, onScreen = false;
+
+    var select = function (i, focus) {
+      if (i === current) return;
+      current = i;
+      tabs.forEach(function (tab, n) {
+        var on = n === i;
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        tab.tabIndex = on ? 0 : -1;
+        tab.classList.toggle('is-done', n < i);
+        panels[n].classList.toggle('is-active', on);
+      });
+      if (railFill) railFill.style.setProperty('--p', (i / (tabs.length - 1)).toFixed(3));
+      /* keep the selected pill in view on a phone, without moving the page */
+      if (tabList && tabList.scrollWidth > tabList.clientWidth) {
+        tabList.scrollTo({ left: tabs[i].offsetLeft - 24, behavior: lively() ? 'smooth' : 'auto' });
+      }
+      if (focus) tabs[i].focus({ preventScroll: true });
+    };
+
+    var syncAuto = function () {
+      pipe.classList.toggle('is-auto', !manual && onScreen && lively());
+    };
+    var takeOver = function () { manual = true; syncAuto(); };
+
+    pipe.classList.add('is-tabs');
+    select(0);
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { takeOver(); select(i); });
+      /* the selected tab's clock has run out */
+      tab.addEventListener('animationend', function (e) {
+        if (e.animationName !== 'pipeClock' || manual || !lively()) return;
+        select((current + 1) % tabs.length);
+      });
+    });
+
+    if (tabList) {
+      tabList.addEventListener('keydown', function (e) {
+        var to = -1;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') to = (current + 1) % tabs.length;
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') to = (current - 1 + tabs.length) % tabs.length;
+        else if (e.key === 'Home') to = 0;
+        else if (e.key === 'End') to = tabs.length - 1;
+        if (to < 0) return;
+        e.preventDefault();
+        takeOver();
+        select(to, true);
+      });
+    }
+
+    /* reading or tabbing through a stage holds the clock */
+    var hold = function (v) { return function () { pipe.classList.toggle('is-held', v); }; };
+    pipe.addEventListener('pointerenter', hold(true));
+    pipe.addEventListener('pointerleave', hold(false));
+    pipe.addEventListener('focusin', hold(true));
+    pipe.addEventListener('focusout', hold(false));
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (en) {
+        onScreen = en[0].isIntersecting;
+        syncAuto();
+      }, { threshold: 0.35 }).observe(pipe);
+    }
+    motionSubs.push(syncAuto);
+  })();
+
+  /* ============================================================
+     19. SMALL TOUCHES
+     ============================================================ */
+
+  /* primary buttons lean a few pixels toward the pointer */
+  if (finePointer.matches) {
+    all('[data-magnet]').forEach(function (el) {
+      el.addEventListener('pointermove', function (e) {
+        if (!lively()) return;
+        var r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', ((e.clientX - r.left - r.width / 2) * 0.22).toFixed(1) + 'px');
+        el.style.setProperty('--my', ((e.clientY - r.top - r.height / 2) * 0.3).toFixed(1) + 'px');
+      }, { passive: true });
+      el.addEventListener('pointerleave', function () {
+        el.style.removeProperty('--mx');
+        el.style.removeProperty('--my');
+      });
+    });
+  }
+
+  /* copy the address without opening a mail client */
+  all('[data-copy]').forEach(function (btn) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+    var label = btn.querySelector('[data-copy-label]');
+    var idle = label ? label.textContent : '';
+    var timer = 0;
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+        btn.classList.add('is-done');
+        if (label) label.textContent = 'Copied';
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          btn.classList.remove('is-done');
+          if (label) label.textContent = idle;
+        }, 1800);
+      }).catch(function () { /* permission denied: the mail link is right there */ });
+    });
+  });
 
   applyMotion();
 })();
