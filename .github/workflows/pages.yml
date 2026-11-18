@@ -46,6 +46,22 @@ jobs:
           test -s "$GITHUB_WORKSPACE/Norair_Harutyunyan_Resume.pdf"
           ls -lh "$GITHUB_WORKSPACE/Norair_Harutyunyan_Resume.pdf"
 
+      # The stylesheet and script are cached by browsers for ten minutes. If their
+      # address never changed, a returning visitor could get a new page with the
+      # old stylesheet. Stamping the commit into the address makes every deploy
+      # fetch the files that belong to it. The step fails rather than publish a
+      # page that was not stamped.
+      - name: Stamp asset URLs with this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${GITHUB_SHA::10}"
+          sed -i -E "s#(assets/(css|js)/site\.(css|js))\?v=[A-Za-z0-9._-]+#\1?v=${V}#g" index.html 404.html
+          grep -q "assets/css/site.css?v=${V}" index.html
+          grep -q "assets/js/site.js?v=${V}" index.html
+          grep -q "assets/css/site.css?v=${V}" 404.html
+          grep -n "site\.\(css\|js\)?v=" index.html 404.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

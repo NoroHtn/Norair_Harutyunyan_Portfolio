@@ -177,6 +177,16 @@ python3 -m http.server 8231
 `.github/workflows/pages.yml` publishes the repository root to GitHub Pages on
 every push to `main`, after printing the résumé PDF from `resume.html`.
 
+**Cache busting.** GitHub Pages lets browsers keep every file for ten minutes.
+The page, the stylesheet and the script change together, so a browser holding
+an older stylesheet must never pair it with a newer page: that is what turned
+the hero into a column of full-size key art on the day the reels shipped. The
+stylesheet and script are therefore linked as `site.css?v=...` and
+`site.js?v=...`, and the workflow replaces that value with the commit hash on
+every deploy. Nothing needs bumping by hand; the value in the repository is only
+a placeholder for local preview. If the stamp ever fails to apply, the deploy
+fails and the previous version stays live.
+
 ## Editing
 
 - **Add a game.** Copy a `.tile` block in `index.html`, cut its thumbnail ladder
