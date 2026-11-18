@@ -17,14 +17,18 @@ show the released work, large and fast. The second is specific to a production
 lead: show *how* the work gets made and who makes it. So the page runs in that
 order.
 
-1. **Hero.** Title, role, and a wall of key art on three slow reels.
-2. **Headline numbers.** 28 titles, 25 specialists, 5 disciplines, 6+ years.
+1. **Hero.** Title, role, and a wall of key art that travels with the scroll.
+2. **Headline numbers.** Years in iGaming, disciplines, illustrating since.
 3. **Two featured cinematics.** The God of Atlantis and Fortune Don Tiger.
-4. **Latest releases.** The five newest titles on a horizontal rail, with specs.
-5. **Work.** All 28 titles, filterable by type, each opening a quick view.
+4. **Latest releases.** The five newest titles on a horizontal rail.
+5. **Work.** Every title, filterable by type, each opening a quick view.
 6. **Process.** The six-stage art pipeline, from brief to release.
-7. **Team.** 25 specialists across five disciplines, plus capabilities.
+7. **Team.** The five disciplines the pipeline runs across, plus capabilities.
 8. **Motion, recognition, profile and career path, contact.**
+
+Two things are deliberately absent: the size of the team, and a count of
+titles. Neither appears anywhere on the page, in the share card, or in the page
+description.
 
 ---
 
@@ -35,7 +39,7 @@ index.html                     the whole page, one file
 assets/css/site.css            hand-authored, mobile-first
 assets/js/site.js              progressive enhancement only
 assets/fonts/*.woff2           Syne (display) + Manrope (body), self-hosted
-games/*.png + *.webp           28 game thumbnails, 302/604/906 WebP + PNG fallback
+games/*.png + *.webp           game thumbnails, 302/604/906 WebP + PNG fallback
 media/*.mp4 + *-poster.webp    4 clips, two rungs each, plus poster frames
 og-cover.jpg                   1200x630 share card
 resume.html                    résumé source; the PDF is printed from it on deploy
@@ -88,7 +92,7 @@ ffmpeg -i master.png -vf "scale=302:302:flags=lanczos,unsharp=3:3:0.55:3:3:0.0" 
 ffmpeg -i master.png -vf "scale=302:302:flags=lanczos,unsharp=3:3:0.55:3:3:0.0,format=rgb24" slug.png
 ```
 
-**Where the masters came from.** The first 22 tiles were cut from 1254x1254
+**Where the masters came from.** The original tiles were cut from 1254x1254
 masters Norair supplied. The six added in November 2026 were taken from the
 public Pascal Gaming site, and the source sizes differ:
 
@@ -113,14 +117,24 @@ Dropping in a 1254px master and re-running the four commands above fixes each.
   first poster frame decodes; capped at 1.5s so a slow asset can never trap a
   visitor. When it clears, the title lines rise out of their masks and the hero
   reels spin in and settle one after another.
-- **Hero reels.** Fifteen pieces of key art on three strips. On a phone they are
-  two rows under the title; from 900px they become three columns on a plane
-  tilted in 3D behind it, and the plane leans a few degrees toward the pointer.
-  The drift is a CSS transform animation, so it stays on the compositor, and it
-  pauses while the hero is off screen.
+- **Hero wall.** Key art on three strips. On a phone they are two rows under
+  the title; from 900px they become three columns on a plane tilted in 3D
+  behind it. The strips travel with the scroll: the first and third run down as
+  the page moves down, the middle one runs up, and all three reverse when the
+  page does. Between scrolls they idle at a stroll. Under a mouse or trackpad
+  the tile beneath the pointer comes forward with a ruby ring, the rest dim, the
+  stroll comes to rest so a title can be picked, and the plane leans a few
+  degrees toward the pointer. A click or tap on any tile opens that title.
 - **Rolling numbers.** Every headline number sits on per-digit strips that roll
   to their value the first time they are seen, the way a reel stops. The real
   number stays in the DOM for assistive tech.
+- **Video.** Every clip plays, muted and looping, for as long as it is on
+  screen. There is no play button. Sources attach one viewport ahead of the
+  clip, so playback starts full rather than buffering on screen. A clip is sharp
+  while it sits at the centre of the window and blurs, dims and eases back as it
+  is scrolled away from the centre, up or down. Clips pause off screen and on a
+  hidden tab. If a browser refuses autoplay (iOS Low Power Mode, data savers),
+  the first touch, click or key anywhere on the page starts them.
 - **Filters.** All / Slots / Crash / Instant / Table. Where the browser supports
   the View Transitions API the tiles glide to their new places; elsewhere the
   grid simply updates.
@@ -132,8 +146,11 @@ Dropping in a 1254px master and re-running the four commands above fixes each.
   tile. Modified clicks (new tab, new window) still follow the link.
 - **"New" marks.** A tile whose `data-date` falls within the last three months
   gets a mark. It is computed at load, so it retires itself.
-- **Tile tilt.** On a fine pointer a tile leans toward the cursor and a soft
-  highlight follows it across the art.
+- **Hover.** With a mouse or trackpad a tile leans toward the pointer, a soft
+  highlight follows it across the art, and a "Details" cue rises onto the art.
+  This includes an iPad with a trackpad, which most hover checks miss: the
+  stylesheet asks `(any-hover:hover)` rather than `(hover:hover)`, and the
+  script reads `pointerType` on each event.
 - **Latest releases rail.** A scroll-snap strip: it swipes on touch, scrolls
   with the wheel or arrow keys, and drags with a mouse. Each card is lit by a
   blurred copy of its own art.
@@ -142,20 +159,15 @@ Dropping in a 1254px master and re-running the four commands above fixes each.
   every 6.5 seconds; hovering or focusing holds the clock, and the first click
   or key press hands control over for good. All panels are stacked in one grid
   cell, so the section never changes height as stages change.
-- **Team.** One pip per person, counted in as the list arrives. Hovering a
-  discipline dims the others.
-- **Video.** Sources attach one viewport ahead of the clip, so playback starts
-  full rather than buffering on screen. A `--soft` value written by an observer
-  runs 0 while a clip is being watched and rises as it leaves, so each clip
-  softens on the way out exactly as it sharpened on the way in. Clips pause off
-  screen and on a hidden tab.
-- **Motion switch.** The header control stops every clip, the hero canvas, the
-  reels, the ticker, the pipeline clock, the tilt, and all reveals at once, and
-  remembers the choice. It defaults to the operating system's reduced-motion
-  setting. This is the pause mechanism required by WCAG 2.2.2.
+- **Motion switch.** Motion is on by default for every visitor. The header
+  control stops all of it at once (clips, the hero canvas, the wall, the
+  ticker, the pipeline clock, the tilt, every reveal and transition) and
+  remembers the choice. This is the pause mechanism required by WCAG 2.2.2. It
+  does not follow the operating system's reduced-motion setting; see the note
+  under Known items.
 - **Hero canvas.** A slow ruby haze in WebGL, purely atmospheric. If the context
   is refused, or frames start costing more than 34ms, it steps aside and the CSS
-  glow underneath carries the hero. It never renders under reduced motion.
+  glow underneath carries the hero.
 - **Résumé links.** Both résumé buttons open the PDF in a new tab. The PDF is
   printed from `resume.html` by the Pages workflow on every deploy.
 
@@ -205,27 +217,39 @@ fails and the previous version stays live.
   | `data-page` | `https://www.pascalgaming.com/games/...` | "Game page" |
   | `data-desc` | one or two factual sentences | quick view |
 
-  Then update the three counts that are written out: the `All` / per-type chips,
-  the `28` in the Work title and the headline numbers, and the page description.
+  Nothing else needs touching: no count of titles is written anywhere on the
+  page.
+- **Add a title to the hero wall or the rail.** Add a `.reel__item` (in all
+  three copies of its strip) or an `.rcard`, with `data-ref` set to the tile's
+  `data-game`. Clicking it then opens that tile's quick view.
 - **Game links.** Use the clean launcher form,
   `https://pg.pascalgaming.com/launch?gameId=N&mode=real&partnerKey=...&culture=en&token=token_155`.
   It redirects through the launcher and mints a fresh `launchToken` on every
   visit, so it does not expire the way a copied `launchToken` URL does.
-- **Pipeline and team copy.** The `.pipe__panel` and `.crew` blocks in
+- **Pipeline and discipline copy.** The `.pipe__panel` and `.crew` blocks in
   `index.html`.
+- **Awards.** The `.award` rows, newest first.
 - **Career path.** The `.job` rows in the profile band; keep them in step with
   `resume.html`.
 - **Colour and type.** The custom properties at the top of `assets/css/site.css`.
-- **Share card.** `og-cover.jpg`, 1200x630. It repeats the title count, so
-  regenerate it when the count changes.
+- **Share card.** `og-cover.jpg`, 1200x630.
 
 ## Known items for the owner
 
+- **Motion ignores the system setting.** At the owner's request the page
+  arrives playing for everyone, including visitors whose device asks for
+  reduced motion; the header switch is their way to stop it. To follow the
+  system setting again, change the default in `site.js` from
+  `stored !== 'off'` to also require
+  `!matchMedia('(prefers-reduced-motion: reduce)').matches` when nothing is
+  stored.
+- **The résumé still states a team size.** `resume.html` (and the PDF printed
+  from it) still carries a line on how many specialists were led and mentored.
+  The page no longer shows any headcount; the résumé was left as written.
 - **LinkedIn was not readable.** The profile returns HTTP 999 to automated
   clients, so nothing on this page was taken from it. The career path mirrors
-  `resume.html`; the team size and breakdown came from Norair directly. If the
-  LinkedIn headline or dates differ, the résumé and the `.job` rows are the two
-  places to change.
+  `resume.html`. If the LinkedIn headline or dates differ, the résumé and the
+  `.job` rows are the two places to change.
 - **Three soft thumbnails.** Piñata Pays, Fortune Calico and Franken Alive need
   1254px masters; see the thumbnail pipeline above.
 - **Three titles have no public demo.** Book of the Sun, Gates of Power, and
@@ -235,7 +259,9 @@ fails and the previous version stays live.
   the public Pascal Gaming game pages as of November 2026. Fields the studio
   lists as "TBD" or gives in mixed units are left out rather than guessed.
 - **Award entries** in the recognition section are Pascal Gaming studio awards,
-  and the section says so. They are not presented as individual awards.
+  and the section says so. They are not presented as individual awards. The
+  2026 entry is as SiGMA lists it: Best New Game Release, Avinho R10, SiGMA
+  World Awards, Rome, 2 November 2026.
 
 ## Reviewing the hero effect
 
