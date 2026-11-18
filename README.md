@@ -28,7 +28,7 @@ order.
 
 Two things are deliberately absent: the size of the team, and a count of
 titles. Neither appears anywhere on the page, in the share card, or in the page
-description.
+description, and the résumé carries no team size either.
 
 ---
 
@@ -243,9 +243,6 @@ fails and the previous version stays live.
   `stored !== 'off'` to also require
   `!matchMedia('(prefers-reduced-motion: reduce)').matches` when nothing is
   stored.
-- **The résumé still states a team size.** `resume.html` (and the PDF printed
-  from it) still carries a line on how many specialists were led and mentored.
-  The page no longer shows any headcount; the résumé was left as written.
 - **LinkedIn was not readable.** The profile returns HTTP 999 to automated
   clients, so nothing on this page was taken from it. The career path mirrors
   `resume.html`. If the LinkedIn headline or dates differ, the résumé and the
