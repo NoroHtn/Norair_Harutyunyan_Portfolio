@@ -16,16 +16,18 @@ often on a phone, usually giving it under a minute before deciding whether to
 keep scrolling. A second, smaller audience is peers and collaborators checking
 specific titles.
 
-The job to be done: judge, quickly, whether this person can carry art direction
-at studio scale, and then find a way to contact them.
+The job to be done: judge, quickly, whether this person can run art production
+at studio scale, and then find a way to contact them. For a production lead that
+judgment rests on three things a reel alone does not show: how much shipped, how
+the work is organised, and how many people it is organised across.
 
 ## Product Purpose
 
 Present Norair Harutyunyan's released iGaming work and production leadership as
 one page that loads anywhere, needs no login, and survives without any
 third-party host. Success is a visitor reaching the contact block with a clear
-sense of the range of the work: 22 shipped titles, cinematics, and leadership of
-a 30-person art function.
+sense of the range of the work: 28 shipped titles, cinematics, a six-stage
+pipeline, and a 25-person team across five disciplines.
 
 ## Brand Personality
 
@@ -45,31 +47,44 @@ Three words: cinematic, exact, unhurried.
   statement of what the person actually did.
 - iGaming marketing pages: gold gradients, coin explosions, exclamation marks.
   The work already contains that energy; repeating it in the frame is noise.
-- Motion for its own sake. Parallax on everything, counters that tick up,
-  scroll-jacking.
+- Motion for its own sake. Parallax on everything, scroll-jacking, a custom
+  cursor, anything that plays without a cause the visitor can name.
 
 ## Design Principles
 
 1. **The art is the loudest thing on the page.** Every interface surface stays
    near-black and low chroma so the game thumbnails and cinematics are the only
    saturated objects in view.
-2. **Show the work, then the claim.** Featured titles and the full 22-game grid
-   come before any statement about leadership or awards.
+2. **Show the work, then the claim.** Key art is on screen before the first
+   scroll; featured titles, the latest releases and the full 28-game grid come
+   before any statement about process, leadership or awards.
 3. **Own every byte.** No external host, no CDN, no font service. If it renders
    today it renders in three years.
-4. **Nothing is claimed without a link.** Every title opens the live game. Studio
-   awards are attributed to the studio in the same sentence.
-5. **Motion is a hand-off, not decoration.** Clips pull into focus to cover the
-   poster-to-video swap; the grid fades to cover decode. Motion that covers
-   nothing gets cut.
+4. **Nothing is claimed without a link.** Every title opens its details and from
+   there the live game and the studio's own game page. Game facts are the ones
+   the studio publishes. Studio awards are attributed to the studio in the same
+   sentence.
+5. **Motion has a cause.** It marks an arrival, answers the visitor, or runs on a
+   clock the visitor can see and stop. Clips pull into focus to cover the
+   poster-to-video swap; the reels settle the way a reel does; a tile leans
+   because a pointer is on it. Motion with no cause gets cut.
+6. **Show the production, not only the product.** A production lead's portfolio
+   names the stages, the gates and the team. They get the same finish as the
+   artwork.
 
 ## Accessibility & Inclusion
 
 Target WCAG 2.1 AA.
 
 - `prefers-reduced-motion` is the default state, not an afterthought: it disables
-  the hero canvas, the focus-pull blur and all reveals, and it decides the
+  the hero canvas, the reels, the number roll, the tilt, the ticker, the
+  pipeline clock, the focus-pull blur and all reveals, and it decides the
   initial position of the Motion switch.
+- The pipeline advances on its own, so it follows WCAG 2.2.2 as well: hover or
+  focus holds it, the first interaction stops it for good, and the Motion switch
+  turns it off.
+- The quick view is a native modal dialog: focus is trapped inside it, Escape
+  closes it, and focus returns to the tile that opened it.
 - The Motion switch is the pause mechanism for auto-playing clips longer than
   five seconds (WCAG 2.2.2). Per-clip controls remain in the tab order and appear
   on keyboard focus.
