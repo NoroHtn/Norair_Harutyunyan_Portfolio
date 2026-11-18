@@ -1,7 +1,7 @@
 # Norair Harutyunyan — Game Art Portfolio
 
-A static, self-hosted portfolio for Norair Harutyunyan: Art Production Lead,
-Game Art Team Lead and Senior 2D Artist, Yerevan.
+A static, self-hosted portfolio for Norair Harutyunyan: Art Production Lead
+and Game Art Team Lead, Yerevan.
 
 No framework, no build step, no runtime dependencies. Open `index.html` and it
 works. GitHub Pages serves the repository root as-is.
