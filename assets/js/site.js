@@ -10,17 +10,25 @@
 
   var root = document.documentElement;
   var body = document.body;
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  var finePointer = window.matchMedia('(hover:hover) and (pointer:fine)');
+
+  /* A mouse or trackpad, as opposed to a finger. Asked per event rather than
+     once per device: an iPad with a trackpad attached is both, and reports
+     itself to media queries as touch-first. */
+  function byPointer(e) { return e.pointerType !== 'touch'; }
 
   function all(sel, scope) { return [].slice.call((scope || document).querySelectorAll(sel)); }
 
-  /* ---------- motion state, shared by everything below ---------- */
+  /* ---------- motion state, shared by everything below ----------
+     Motion is on unless the visitor turns it off with the header switch,
+     and that choice is remembered. The key carries a version so a choice
+     saved under the older rule (which followed the operating system) is
+     not carried over. */
+  var MOTION_KEY = 'nh-motion-2';
   var stored = null;
-  try { stored = localStorage.getItem('nh-motion'); } catch (e) { /* private mode */ }
-  var motionOn = stored === null ? !reduced.matches : stored === 'on';
+  try { stored = localStorage.getItem(MOTION_KEY); } catch (e) { /* private mode */ }
+  var motionOn = stored !== 'off';
   var motionSubs = [];                       /* called whenever the switch changes */
-  function lively() { return motionOn && !reduced.matches; }
+  function lively() { return motionOn; }
 
   /* ============================================================
      1. BOOT SCREEN
@@ -199,9 +207,11 @@
 
   /* ============================================================
      8. VIDEO
-     Sources attach well before the clip is on screen, so playback
-     starts full. Each stage arrives soft and pulls into focus,
-     which also covers the hand-off from poster to first frame.
+     Every clip plays, muted and looping, for as long as it is on
+     screen; there is no control to press. Sources attach well
+     before a clip arrives, so playback starts full. A clip is sharp
+     at the centre of the window and softens as it is scrolled away
+     from it, which also covers the hand-off from poster to video.
      ============================================================ */
   var stages = all('.stage[data-video]');
 
@@ -227,26 +237,28 @@
     video.load();
   }
 
-  function mark(stage, playing) {
-    stage.classList.toggle('is-playing', playing);
-    var btn = stage.querySelector('.stage__ctl button');
-    if (btn) btn.setAttribute('aria-label', playing ? 'Pause this clip' : 'Play this clip');
-  }
+  var refused = [];           /* clips the browser would not start on its own */
 
   function play(stage, video) {
     attach(video);
+    video.muted = true;       /* iOS only starts a clip it can see is muted */
     var p = video.play();
     if (p && typeof p.then === 'function') {
-      p.then(function () { mark(stage, true); })
-       .catch(function () { mark(stage, false); }); /* low-power mode, data saver */
+      p.then(function () { stage.classList.add('is-playing'); })
+       .catch(function () {
+         /* Low Power Mode and data savers refuse autoplay. With no button to
+            press, the next touch, click or key anywhere starts the clip. */
+         stage.classList.remove('is-playing');
+         if (refused.indexOf(stage) === -1) refused.push(stage);
+       });
     } else {
-      mark(stage, true);
+      stage.classList.add('is-playing');
     }
   }
 
   function pause(stage, video) {
     video.pause();
-    mark(stage, false);
+    stage.classList.remove('is-playing');
   }
 
   function inView(el) {
@@ -254,25 +266,58 @@
     return r.top < innerHeight && r.bottom > 0;
   }
 
+  var retry = function () {
+    if (!refused.length || !motionOn) return;
+    var list = refused;
+    refused = [];
+    list.forEach(function (stage) {
+      var v = stage.querySelector('video');
+      if (v && inView(stage)) play(stage, v);
+    });
+  };
+  ['pointerdown', 'touchend', 'keydown'].forEach(function (type) {
+    addEventListener(type, retry, { passive: true });
+  });
+
   stages.forEach(function (stage) {
     var video = stage.querySelector('video');
     if (!video) return;
-
     /* the clip only becomes visible once it can genuinely paint */
     var reveal = function () { stage.classList.add('is-ready'); };
     video.addEventListener('loadeddata', reveal);
     video.addEventListener('playing', reveal);
     /* if the file is unreachable the poster simply stays */
-    video.addEventListener('error', function () { mark(stage, false); }, true);
-
-    var btn = stage.querySelector('.stage__ctl button');
-    if (btn) {
-      btn.addEventListener('click', function () {
-        if (video.paused) play(stage, video); else pause(stage, video);
-      });
-    }
-    mark(stage, false);
+    video.addEventListener('error', function () { stage.classList.remove('is-playing'); }, true);
   });
+
+  if (stages.length) {
+    /* Focus pull. --soft is 0 while a clip sits at the centre of the window
+       and rises to 1 the further its own centre is scrolled from it, up or
+       down. It is written at most once per frame, while scrolling, and only
+       for clips that are near the window. */
+    var focusAsked = false;
+    var focus = function () {
+      focusAsked = false;
+      var vh = innerHeight || 1;
+      stages.forEach(function (stage) {
+        var r = stage.getBoundingClientRect();
+        if (r.bottom < -vh || r.top > vh * 2) return;
+        var away = Math.abs(r.top + r.height / 2 - vh / 2) / vh;
+        var soft = Math.min(1, Math.max(0, (away - 0.14) / 0.6));
+        stage.style.setProperty('--soft', soft.toFixed(3));
+        stage.classList.toggle('is-sharp', soft === 0);
+      });
+    };
+    var askFocus = function () {
+      if (focusAsked) return;
+      focusAsked = true;
+      requestAnimationFrame(focus);
+    };
+    addEventListener('scroll', askFocus, { passive: true });
+    addEventListener('resize', askFocus, { passive: true });
+    addEventListener('load', askFocus, { once: true });
+    focus();
+  }
 
   if ('IntersectionObserver' in window && stages.length) {
     /* buffer early: one full viewport ahead of the clip */
@@ -286,26 +331,7 @@
     }, { rootMargin: '100% 0px' });
     stages.forEach(function (s) { preloader.observe(s); });
 
-    /* Focus pull. A ratio of thresholds is enough to drive this: the
-       callback only runs when a clip crosses one, so there is no scroll
-       handler and no per-frame work. --soft is 0 while the clip is being
-       watched and rises as it leaves the viewport in either direction. */
-    var STEPS = [0, .05, .12, .2, .28, .36, .44, .52, .6, .68, .76, .84, .9, .96, 1];
-    var softener = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        var stage = en.target;
-        /* a stage taller than the window can never reach ratio 1, so measure
-           against the most of it that could possibly be on screen */
-        var reachable = Math.min(en.boundingClientRect.height, innerHeight) || 1;
-        var cover = Math.min(1, en.intersectionRect.height / reachable);
-        var soft = cover >= 0.9 ? 0 : Math.min(1, (0.9 - cover) / 0.62);
-        stage.style.setProperty('--soft', soft.toFixed(3));
-        stage.classList.toggle('is-sharp', soft === 0);
-      });
-    }, { threshold: STEPS });
-    stages.forEach(function (s) { softener.observe(s); });
-
-    /* playback */
+    /* playback: running while any real part of the clip is on screen */
     var vo = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         var stage = en.target;
@@ -317,15 +343,19 @@
           pause(stage, video);
         }
       });
-    }, { threshold: 0.2 });
+    }, { threshold: 0.12 });
     stages.forEach(function (s) { vo.observe(s); });
   } else {
-    stages.forEach(function (s) { s.classList.add('is-sharp'); });
+    stages.forEach(function (s) {
+      var v = s.querySelector('video');
+      if (v && motionOn) play(s, v);
+    });
   }
 
   /* ---------- 9. motion toggle ---------- */
   function applyMotion() {
     body.classList.toggle('motion-off', !motionOn);
+    root.classList.toggle('no-motion', !motionOn);
     if (toggle) {
       var label = motionOn ? 'Motion on' : 'Motion off';
       toggle.setAttribute('aria-pressed', motionOn ? 'true' : 'false');
@@ -347,18 +377,10 @@
     toggle.addEventListener('click', function () {
       motionOn = !motionOn;
       stored = motionOn ? 'on' : 'off';
-      try { localStorage.setItem('nh-motion', stored); } catch (e) { /* ignore */ }
+      try { localStorage.setItem(MOTION_KEY, stored); } catch (e) { /* ignore */ }
       applyMotion();
     });
   }
-
-  var onPrefChange = function () {
-    if (stored !== null) return;       /* an explicit choice wins over the OS */
-    motionOn = !reduced.matches;
-    applyMotion();
-  };
-  if (reduced.addEventListener) reduced.addEventListener('change', onPrefChange);
-  else if (reduced.addListener) reduced.addListener(onPrefChange);
 
   /* ---------- 10. stop everything when the tab is hidden ---------- */
   document.addEventListener('visibilitychange', function () {
@@ -386,7 +408,7 @@
      ============================================================ */
   function buildHero() {
     var canvas = document.getElementById('hero-gl');
-    if (!canvas || reduced.matches) return null;
+    if (!canvas) return null;
 
     var gl = canvas.getContext('webgl', {
       alpha: true, antialias: false, depth: false, stencil: false,
@@ -559,12 +581,11 @@
 
     addEventListener('resize', function () { if (running) size(); }, { passive: true });
 
-    if (finePointer.matches) {
-      addEventListener('pointermove', function (e) {
-        ptr.tx = (e.clientX / innerWidth) * 2 - 1;
-        ptr.ty = 1 - (e.clientY / innerHeight) * 2;
-      }, { passive: true });
-    }
+    addEventListener('pointermove', function (e) {
+      if (!byPointer(e)) return;
+      ptr.tx = (e.clientX / innerWidth) * 2 - 1;
+      ptr.ty = 1 - (e.clientY / innerHeight) * 2;
+    }, { passive: true });
 
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (en) {
@@ -601,25 +622,102 @@
 
   /* ============================================================
      13. HERO REELS
-     The strips drift in CSS. Script adds two things: the plane
-     leans a few degrees toward the pointer, and the drift stops
-     while the hero is off screen.
+     Three strips of key art. They idle at a stroll and travel with
+     the scroll: the first and third run down as the page moves
+     down, the middle one runs up, and all three reverse when the
+     page does. Under a pointer they come to rest so a title can be
+     picked, and a click opens it. The plane also leans a few
+     degrees toward the pointer.
      ============================================================ */
   (function reels() {
     var heroEl = document.querySelector('.hero');
     var plane = document.querySelector('.hero__plane');
     if (!heroEl || !plane) return;
 
+    var strips = all('.reel__strip', plane);
+    var columns = window.matchMedia('(min-width:900px)');
+    var DIR = [1, -1, 1];          /* columns: down, up, down. rows: right, left */
+    var PACE = [1, 0.82, 1.16];    /* no two strips keep quite the same pace */
+    var COPIES = 3;                /* each strip holds its set three times over */
+    var pos = strips.map(function () { return 0; });    /* where each strip is */
+    var aim = strips.map(function () { return 0; });    /* where it is heading */
+    var loop = strips.map(function () { return 0; });   /* length of one set */
+    var onScreen = true, raf = 0, last = 0, lastY = window.scrollY;
+    var held = false, stroll = 1;
+
+    var measure = function () {
+      var col = columns.matches;
+      strips.forEach(function (strip, i) {
+        var cs = getComputedStyle(strip);
+        var gap = parseFloat(col ? cs.rowGap : cs.columnGap) || 0;
+        var size = col ? strip.scrollHeight : strip.scrollWidth;
+        loop[i] = size ? (size + gap) / COPIES : 0;     /* 0: this reel is not shown at this width */
+      });
+    };
+
+    var frame = function (now) {
+      raf = 0;
+      if (!onScreen || !motionOn || document.hidden) return;
+      var dt = Math.min(64, now - (last || now));
+      last = now;
+      var y = window.scrollY;
+      var delta = y - lastY;
+      lastY = y;
+      /* the idle pace eases to nothing while a pointer is on the wall */
+      stroll += ((held ? 0 : 1) - stroll) * 0.08;
+      var col = columns.matches;
+      strips.forEach(function (strip, i) {
+        var len = loop[i];
+        if (!len) return;
+        aim[i] += DIR[i] * PACE[i] * (0.02 * dt * stroll + delta * 0.45);
+        pos[i] += (aim[i] - pos[i]) * 0.14;     /* a little weight behind the scroll */
+        var at = ((pos[i] % len) + len) % len - len;
+        strip.style.transform = col
+          ? 'translate3d(0,' + at.toFixed(1) + 'px,0)'
+          : 'translate3d(' + at.toFixed(1) + 'px,0,0)';
+      });
+      raf = requestAnimationFrame(frame);
+    };
+    var kick = function () {
+      if (raf) return;
+      last = 0;
+      lastY = window.scrollY;
+      raf = requestAnimationFrame(frame);
+    };
+
+    measure();
+    plane.classList.add('is-driven');           /* the CSS drift steps aside */
+    addEventListener('resize', measure, { passive: true });
+    addEventListener('load', measure, { once: true });
+    if (columns.addEventListener) columns.addEventListener('change', measure);
+
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (en) {
-        heroEl.classList.toggle('is-away', !en[0].isIntersecting);
+        onScreen = en[0].isIntersecting;
+        if (onScreen) kick();
       }, { threshold: 0 }).observe(heroEl);
     }
+    motionSubs.push(kick);
+    document.addEventListener('visibilitychange', kick);
+    kick();
 
-    if (!finePointer.matches) return;
+    /* a click on a title in the wall opens it, the same as in the grid */
+    plane.addEventListener('click', function (e) {
+      var item = e.target.closest('.reel__item');
+      if (!item || !openQuickView) return;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var tile = grid && grid.querySelector('.tile[data-game="' + item.getAttribute('data-ref') + '"]');
+      if (!tile) return;
+      e.preventDefault();
+      openQuickView(tile, null);
+    });
+
+    plane.addEventListener('pointerenter', function (e) { if (byPointer(e)) held = true; });
+    plane.addEventListener('pointerleave', function () { held = false; });
+
     var tick = false, px = 0, py = 0;
     heroEl.addEventListener('pointermove', function (e) {
-      if (!lively()) return;
+      if (!byPointer(e) || !lively()) return;
       var r = heroEl.getBoundingClientRect();
       px = ((e.clientY - r.top) / r.height - 0.5) * -6;     /* rotateX, degrees */
       py = ((e.clientX - r.left) / r.width - 0.5) * 9;      /* rotateY, degrees */
@@ -728,11 +826,11 @@
   })();
 
   /* the tile leans toward the pointer and a highlight follows it */
-  if (finePointer.matches) {
-    tiles.forEach(function (tile) {
+  tiles.forEach(function (tile) {
+    (function () {
       var tick = false, ev = null;
       tile.addEventListener('pointermove', function (e) {
-        if (!lively()) return;
+        if (!byPointer(e) || !lively()) return;
         ev = e;
         if (tick) return;
         tick = true;
@@ -753,13 +851,13 @@
         tile.style.removeProperty('--rx');
         tile.style.removeProperty('--ry');
       });
-    });
-  }
+    })();
+  });
 
   /* filters */
   var filterBar = document.querySelector('.filters');
   var chips = all('.chip');
-  var countEl = document.querySelector('[data-count]');
+  var statusEl = document.querySelector('[data-filter-status]');
   var activeFilter = 'all';
 
   function visibleTiles() {
@@ -768,20 +866,19 @@
 
   function setFilter(cat) {
     activeFilter = cat;
-    var shown = 0;
     tiles.forEach(function (tile) {
       var on = cat === 'all' || tile.getAttribute('data-cat') === cat;
       tile.hidden = !on;
-      if (on) {
-        shown++;
-        /* a tile that was never scrolled to must not stay invisible */
-        tile.classList.add('is-in', 'is-settled');
-      }
+      /* a tile that was never scrolled to must not stay invisible */
+      if (on) tile.classList.add('is-in', 'is-settled');
     });
     chips.forEach(function (c) {
       c.setAttribute('aria-pressed', c.getAttribute('data-filter') === cat ? 'true' : 'false');
     });
-    if (countEl) countEl.textContent = String(shown);
+    if (statusEl) {
+      var chosen = chips.filter(function (c) { return c.getAttribute('data-filter') === cat; })[0];
+      statusEl.textContent = cat === 'all' ? 'Showing all titles' : 'Showing ' + (chosen ? chosen.textContent.trim() : cat);
+    }
   }
 
   if (filterBar && chips.length && tiles.length) {
@@ -826,7 +923,6 @@
       var img = tile.querySelector('img');
       var source = tile.querySelector('source');
 
-      q('no').textContent = tile.querySelector('.tile__no').textContent;
       q('meta').textContent = d.type + ' · ' + d.released;
       q('name').textContent = name;
       q('desc').textContent = d.desc || '';
@@ -858,7 +954,6 @@
       qvImg.alt = img.alt;
       qvGlow.src = img.currentSrc || img.getAttribute('src');
 
-      q('count').textContent = (qvIndex + 1) + ' of ' + qvList.length;
     };
 
     var go = function (step) {
@@ -896,7 +991,7 @@
       qvList = visibleTiles();
       if (qvList.indexOf(tile) === -1) qvList = tiles.slice();
       qvIndex = qvList.indexOf(tile);
-      qvOpener = opener || tile;
+      qvOpener = opener === undefined ? tile : opener;   /* null: leave focus where the browser puts it */
       fill(tile);
       root.classList.add('is-modal');
       qv.showModal();
@@ -1142,10 +1237,10 @@
      ============================================================ */
 
   /* primary buttons lean a few pixels toward the pointer */
-  if (finePointer.matches) {
-    all('[data-magnet]').forEach(function (el) {
+  all('[data-magnet]').forEach(function (el) {
+    (function () {
       el.addEventListener('pointermove', function (e) {
-        if (!lively()) return;
+        if (!byPointer(e) || !lively()) return;
         var r = el.getBoundingClientRect();
         el.style.setProperty('--mx', ((e.clientX - r.left - r.width / 2) * 0.22).toFixed(1) + 'px');
         el.style.setProperty('--my', ((e.clientY - r.top - r.height / 2) * 0.3).toFixed(1) + 'px');
@@ -1154,8 +1249,8 @@
         el.style.removeProperty('--mx');
         el.style.removeProperty('--my');
       });
-    });
-  }
+    })();
+  });
 
   /* copy the address without opening a mail client */
   all('[data-copy]').forEach(function (btn) {

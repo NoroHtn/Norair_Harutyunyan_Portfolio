@@ -302,13 +302,21 @@ section[id],article[id]{scroll-margin-top:calc(var(--head-h) + 1.25rem)}
   animation:reelX 44s linear infinite;
 }
 .reel--2 .reel__strip{animation-direction:reverse;animation-duration:52s}
-.reel img{
-  width:26vw;max-width:8.5rem;height:auto;aspect-ratio:1;flex:0 0 auto;
+/* with script the strips travel with the scroll instead: see site.js */
+.is-driven .reel__strip{animation:none;will-change:transform}
+.reel__item{
+  display:block;flex:0 0 auto;position:relative;overflow:hidden;
+  width:26vw;max-width:8.5rem;aspect-ratio:1;
   border-radius:.75rem;background:#0a0a0d;
   box-shadow:0 0 0 1px #f0ede71a;
+  transition:transform .5s var(--ease-out-expo),opacity .35s var(--ease-out-quart),
+             box-shadow .35s var(--ease-out-quart);
 }
-@keyframes reelX{to{transform:translateX(calc(-50% - .3rem))}}
-@keyframes reelY{to{transform:translateY(calc(-50% - .5rem))}}
+.reel__item:active{transform:scale(.97)}
+.reel__item img{width:100%;height:100%;object-fit:cover}
+/* each strip holds its set three times, so one set is a third of its length */
+@keyframes reelX{to{transform:translateX(calc(-33.333% - .2rem))}}
+@keyframes reelY{to{transform:translateY(calc(-33.333% - .333rem))}}
 
 /* each reel spins in and comes to rest, one after the other */
 .js.is-booting .reel{opacity:0}
@@ -319,17 +327,13 @@ section[id],article[id]{scroll-margin-top:calc(var(--head-h) + 1.25rem)}
 @keyframes reelInY{from{opacity:0;transform:translateY(-46%)}}
 @keyframes reelInYr{from{opacity:0;transform:translateY(46%)}}
 
-/* nothing drifts when the hero is off screen or motion is off */
-.hero.is-away .reel__strip,
-body.motion-off .reel__strip{animation-play-state:paused}
-
 /* ---------- headline numbers ---------- */
 .statband{border-top:1px solid var(--line);padding:clamp(1.5rem,3vw,2rem) 0 clamp(1.7rem,3.4vw,2.4rem)}
-.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem 1rem}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
 .stats__i{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:.55rem}
 .stats dd{
   font-family:var(--display);font-weight:700;
-  font-size:clamp(2.3rem,5.4vw,3.9rem);line-height:1;letter-spacing:-.045em;
+  font-size:clamp(1.9rem,5.4vw,3.9rem);line-height:1;letter-spacing:-.045em;
   font-variant-numeric:tabular-nums;
 }
 .stats dt{
@@ -391,7 +395,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
   margin-bottom:.7rem;color:var(--silver-dim);
   font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
 }
-.featured__copy{margin-top:1.1rem;max-width:65ch;color:var(--silver);font-size:.95rem}
 .featured__open{grid-column:1/-1}
 .featured__open a{
   display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:2.75rem;
@@ -426,29 +429,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
   border-radius:999px;padding:.55rem .9rem;
   font-size:.56rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
 }
-/* The clip control is out of sight while the reel plays.
-   It returns on hover and on keyboard focus, and the header
-   Motion switch pauses every clip at once (WCAG 2.2.2). */
-.stage__ctl{
-  position:absolute;top:clamp(.7rem,1.6vw,1.2rem);right:clamp(.7rem,1.6vw,1.2rem);z-index:4;
-  opacity:0;transform:translateY(-.35rem);pointer-events:none;
-  transition:opacity var(--out) var(--ease),transform var(--out) var(--ease);
-}
-.stage__ctl button{
-  width:2.75rem;height:2.75rem;border-radius:50%;
-  border:1px solid var(--line-strong);background:#0a0a0cd9;
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  display:grid;place-items:center;
-  transition:background var(--out) var(--ease),transform var(--out) var(--ease);
-}
-.stage__ctl button:active{transform:scale(.94)}
-.stage__ctl svg{width:1rem;height:1rem;grid-area:1/1}
-.stage .ico-pause{display:none}
-.stage.is-playing .ico-play{display:none}
-.stage.is-playing .ico-pause{display:block}
-/* visible when the clip is stopped, when focused, or on hover */
-.stage:not(.is-playing) .stage__ctl,
-.stage__ctl:focus-within{opacity:1;transform:none;pointer-events:auto}
 
 /* ---------- sections ---------- */
 .section{padding:clamp(2.75rem,7vw,6rem) 0;border-top:1px solid var(--line)}
@@ -500,25 +480,19 @@ body.motion-off .reel__strip{animation-play-state:paused}
   font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
 }
 .rcard h3{font-size:clamp(1.45rem,2.6vw,2.1rem);letter-spacing:-.04em;margin-top:.7rem;font-weight:700}
-.rcard__desc{display:block;margin-top:.8rem;color:var(--silver);font-size:.88rem;line-height:1.55}
-.rcard__specs{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem 1rem;width:100%;
-  margin:1.1rem 0 1.2rem;padding-top:1rem;border-top:1px solid var(--line);
-}
-.rcard__specs div:first-child{grid-column:1/-1}
-.rcard__specs dt,.qv__specs dt,.pipe__facts dt{
+.rcard__desc{display:block;margin:.8rem 0 1.4rem;color:var(--silver);font-size:.88rem;line-height:1.55}
+.qv__specs dt,.pipe__facts dt{
   color:var(--silver-dim);
   font-size:.56rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
 }
-.rcard__specs dd{margin-top:.25rem;font-family:var(--display);font-size:.92rem;font-weight:600;letter-spacing:-.02em}
-.rcard__go,.tile__go{
+.rcard__go{
   display:inline-flex;align-items:center;gap:.5rem;
   border:1px solid var(--line-strong);border-radius:999px;padding:.6rem .95rem;
   font-size:.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   transition:background var(--out) var(--ease),color var(--out) var(--ease),border-color var(--out) var(--ease);
 }
 .rcard__go{margin-top:auto}
-.rcard__go svg,.tile__go svg{width:.7rem;height:.7rem;flex:0 0 auto}
+.rcard__go svg{width:.7rem;height:.7rem;flex:0 0 auto}
 
 .rail-bar{height:2px;margin-top:1.4rem;background:var(--line);border-radius:2px;overflow:hidden}
 .rail-bar span{
@@ -548,13 +522,7 @@ body.motion-off .reel__strip{animation-play-state:paused}
              border-color var(--out) var(--ease),transform var(--out) var(--ease);
 }
 .chip:active{transform:scale(.97)}
-.chip b{font-weight:700;color:var(--silver-dim);font-variant-numeric:tabular-nums}
 .chip[aria-pressed="true"]{background:var(--paper);border-color:var(--paper);color:var(--ink)}
-.chip[aria-pressed="true"] b{color:#5c5f67}
-.filters__count{
-  color:var(--silver-dim);font-variant-numeric:tabular-nums;
-  font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-}
 
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
 .tile{
@@ -594,18 +562,22 @@ body.motion-off .reel__strip{animation-play-state:paused}
   font-size:.52rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;line-height:1.3;
 }
 
-.tile__bar{padding:.7rem .75rem .85rem;display:grid;gap:.35rem}
-.tile__name{display:flex;align-items:baseline;gap:.5rem}
-.tile__no{
-  font-family:var(--display);font-size:.62rem;font-weight:700;color:var(--ruby);flex:0 0 auto;
-  font-variant-numeric:tabular-nums;
-}
-.tile__name h3{font-family:var(--display);font-size:.88rem;letter-spacing:-.03em;font-weight:600;line-height:1.12}
+.tile__bar{padding:.7rem .75rem .85rem;display:grid;gap:.3rem}
+.tile__bar h3{font-family:var(--display);font-size:.88rem;letter-spacing:-.03em;font-weight:600;line-height:1.12}
 .tile__meta{
   color:var(--silver-dim);
   font-size:.54rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
 }
-.tile__go{display:none;justify-self:start;margin-top:.35rem}   /* shown from 560px */
+/* a cue on the art, for devices with a pointer or a keyboard; see the hover block */
+.tile__view{
+  position:absolute;right:.7rem;bottom:.7rem;z-index:2;display:none;align-items:center;gap:.45rem;
+  border:1px solid var(--line-strong);border-radius:999px;padding:.5rem .8rem;
+  background:#0a0a0ce0;color:var(--paper);
+  font-size:.56rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  opacity:0;transform:translateY(.4rem);
+  transition:opacity var(--out) var(--ease),transform var(--out) var(--ease);
+}
+.tile__view svg{width:.7rem;height:.7rem;flex:0 0 auto}
 
 .note{margin-top:2rem;color:var(--silver-dim);font-size:.8rem}
 
@@ -655,7 +627,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
   display:flex;flex-wrap:wrap;gap:.3rem .8rem;color:var(--silver-dim);padding-right:3rem;
   font-size:.62rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
 }
-.qv__no{color:var(--ruby);font-family:var(--display);font-variant-numeric:tabular-nums;letter-spacing:0}
 .qv__title{font-size:clamp(1.7rem,4.2vw,3rem);letter-spacing:-.04em;margin-top:.8rem}
 .qv__desc{margin-top:1rem;color:var(--silver);font-size:.95rem;max-width:52ch}
 .qv__specs{
@@ -665,10 +636,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
 .qv__specs dd{margin-top:.3rem;font-family:var(--display);font-size:1.02rem;font-weight:600;letter-spacing:-.025em}
 .qv__cta{display:flex;flex-wrap:wrap;gap:.6rem}
 .qv__nav{display:flex;align-items:center;gap:.8rem;margin-top:auto;padding-top:1.4rem}
-.qv__count{
-  color:var(--silver-dim);font-variant-numeric:tabular-nums;
-  font-size:.64rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-}
 .qv__close{position:absolute;top:.8rem;right:.8rem;z-index:2;background:#0a0a0cd9}
 /* the copy slips sideways when stepping to the next title */
 .qv__body > :not(.qv__nav),.qv__img{transition:opacity .22s var(--ease-out-quart),transform .35s var(--ease-out-expo)}
@@ -775,28 +742,17 @@ body.motion-off .reel__strip{animation-play-state:paused}
 /* ---------- team ---------- */
 .crews{border-top:1px solid var(--line);margin-bottom:clamp(2rem,5vw,4rem)}
 .crew{
-  display:grid;grid-template-columns:3rem minmax(0,1fr);gap:.45rem 1rem;align-items:center;
-  padding:1.2rem 0;border-bottom:1px solid var(--line);
-  transition:opacity var(--out) var(--ease);
+  position:relative;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem 2rem;align-items:baseline;
+  padding:1.25rem 0;border-bottom:1px solid var(--line);
+  transition:padding var(--out) var(--ease),opacity var(--out) var(--ease);
 }
-.crew__n{
-  grid-row:span 3;align-self:start;
-  font-family:var(--display);font-weight:700;color:var(--paper);
-  font-size:clamp(2rem,4vw,3.1rem);line-height:1;letter-spacing:-.045em;
-  font-variant-numeric:tabular-nums;
+.crew::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--ruby);
+  transform:scaleY(0);transform-origin:50% 0;transition:transform var(--out) var(--ease);
 }
-.crew__name{font-family:var(--display);font-size:clamp(1.1rem,2vw,1.55rem);font-weight:600;letter-spacing:-.03em;line-height:1.1}
-.crew__pips{display:flex;flex-wrap:wrap;gap:.4rem}
-.pip{
-  width:.72rem;height:.72rem;border-radius:50%;background:var(--paper);
-  transition:background var(--out) var(--ease),transform .55s var(--ease-out-expo);
-}
-.crew__what{color:var(--silver);font-size:.9rem}
-/* one pip per person, counted in as the list arrives */
-.js .crews .pip{transform:scale(0);transition-delay:calc(var(--k,0) * 55ms + 180ms)}
-.js .crews.is-in .pip{transform:none}
-.pip:nth-child(2){--k:1}.pip:nth-child(3){--k:2}.pip:nth-child(4){--k:3}
-.pip:nth-child(5){--k:4}.pip:nth-child(6){--k:5}.pip:nth-child(7){--k:6}.pip:nth-child(8){--k:7}
+.crew__name{font-family:var(--display);font-size:clamp(1.2rem,2.3vw,1.9rem);font-weight:600;letter-spacing:-.035em;line-height:1.1}
+.crew__what{color:var(--silver);font-size:.95rem}
 
 /* ---------- expertise ---------- */
 .cols{display:grid;grid-template-columns:1fr;border-top:1px solid var(--line)}
@@ -806,22 +762,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
 .col h3{font-size:clamp(1.4rem,2.6vw,2.1rem);letter-spacing:-.035em;margin:1.2rem 0 .9rem;font-weight:600}
 .col p{color:var(--silver);font-size:.95rem;max-width:44ch}
 
-.stat{
-  margin-top:clamp(1.8rem,4vw,3rem);
-  border:1px solid var(--line);border-radius:var(--radius);
-  background:linear-gradient(115deg,#2a0d1a 0%,var(--ink-soft) 46%);
-  display:grid;grid-template-columns:1fr;
-  gap:1.4rem;align-items:center;padding:clamp(1.6rem,4vw,3rem);
-}
-.stat b{
-  display:block;font-family:var(--display);font-weight:700;
-  font-size:clamp(3rem,6.5vw,5.5rem);line-height:.9;letter-spacing:-.045em;
-}
-.stat span{
-  display:block;margin-top:.5rem;color:var(--gold);
-  font-size:.66rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-}
-.stat p{color:var(--silver);font-size:1rem;max-width:60ch}
 
 /* ---------- awards ---------- */
 .awards{margin-top:clamp(1.8rem,4vw,3rem);border-top:1px solid var(--line)}
@@ -961,12 +901,9 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .motion-toggle [data-label]{display:inline}
 
   .grid{gap:clamp(.8rem,1.6vw,1.4rem)}
-  .tile__bar{padding:1rem 1.1rem 1.15rem;gap:.5rem}
-  .tile__name{gap:.7rem}
-  .tile__no{font-size:.68rem}
-  .tile__name h3{font-size:clamp(1rem,1.45vw,1.2rem)}
+  .tile__bar{padding:1rem 1.1rem 1.15rem;gap:.45rem}
+  .tile__bar h3{font-size:clamp(1rem,1.45vw,1.2rem)}
   .tile__meta{font-size:.58rem}
-  .tile__go{display:inline-flex}
   .tile__new{left:.8rem;top:.8rem;font-size:.56rem;padding:.32rem .65rem}
 
   .rcard{grid-template-columns:minmax(0,.84fr) minmax(0,1fr);align-items:stretch}
@@ -1024,6 +961,9 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .hero h1{font-size:clamp(4.6rem,9vw,8rem)}
   .hero__top{justify-content:flex-start;gap:.6rem 2.6rem;max-width:34rem}
   .hero__lead{max-width:min(36rem,46vw)}
+  /* the title and lead lie over the wall: the pointer passes through them to the art */
+  .hero h1,.hero__top,.hero__foot{pointer-events:none}
+  .hero__cta{pointer-events:auto}
   /* the second button floats over the art, so it carries its own ground */
   .hero__cta .btn:not(.btn--primary){background:#0a0a0cb8;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
   .hero h1 .outline{padding-left:clamp(.5rem,6vw,8rem)}
@@ -1050,12 +990,12 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .reel__strip{flex-direction:column;gap:1rem;width:auto;animation-name:reelY;animation-duration:58s}
   .reel--2 .reel__strip{animation-duration:70s}
   .reel--3 .reel__strip{animation-duration:64s}
-  .reel img{width:100%;max-width:none;border-radius:1rem;box-shadow:0 0 0 1px #f0ede726,0 1.4rem 3rem #000a}
+  .reel__item{width:100%;max-width:none;border-radius:1rem;box-shadow:0 0 0 1px #f0ede726,0 1.4rem 3rem #000a}
   .js:not(.is-booting) .reel{animation-name:reelInY;animation-duration:2s}
   .js:not(.is-booting) .reel--2{animation-name:reelInYr;animation-delay:.16s}
   .js:not(.is-booting) .reel--3{animation-delay:.32s}
 
-  .stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+  .stats{gap:0}
   .stats__i{padding:0 1.4rem}
   .stats__i:first-child{padding-left:0}
   .stats__i + .stats__i{border-left:1px solid var(--line)}
@@ -1065,7 +1005,6 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .split--flip .split__media{order:-1}
   .split__media .stage--portrait{height:min(76vh,42rem)}
 
-  .stat{grid-template-columns:minmax(0,.9fr) minmax(0,1.6fr);gap:clamp(1.5rem,4vw,3rem)}
   .stage__cap{font-size:.62rem;padding:.6rem 1rem}
   .tile__bar{padding:1.15rem 1.25rem 1.3rem;gap:.55rem}
 
@@ -1101,8 +1040,7 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .pipe__tab[aria-selected="true"] .pipe__dot{transform:scale(1.25)}
   .pipe__tab::after{left:3.6rem;right:auto;width:min(9rem,60%);bottom:.35rem;height:1px}
 
-  .crew{grid-template-columns:5.5rem minmax(0,1.05fr) minmax(0,.85fr) minmax(0,1.5fr);gap:1.5rem;padding:1.5rem 0}
-  .crew__n{grid-row:auto;align-self:center}
+  .crew{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);padding:1.6rem 0}
 
   .profile__in{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}
   .profile__path{padding-top:.4rem}
@@ -1133,8 +1071,12 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 
-/* ---------- hover: pointer devices only, so taps never stick ---------- */
-@media (hover:hover) and (pointer:fine){
+/* ---------- hover ----------
+   For any device that has a mouse or trackpad, including one that is
+   touch-first: an iPad with a trackpad answers "no" to (hover:hover) but
+   "yes" to (any-hover:hover), and it should get these too. A phone with
+   only a finger matches neither, so taps never leave a hover state behind. */
+@media (any-hover:hover) and (any-pointer:fine){
   .nav a:hover{color:var(--paper);transition-duration:var(--in)}
   .nav a:hover::after{transform:scaleX(1);transition-duration:var(--in)}
   .motion-toggle:hover,.copy:hover{border-color:var(--paper);transition-duration:var(--in)}
@@ -1148,52 +1090,58 @@ body.motion-off .reel__strip{animation-play-state:paused}
   .featured__open a:hover{color:var(--ruby);gap:1.6rem;transition-duration:var(--in)}
   .tile:hover{border-color:var(--line-strong)}
   .tile:hover .tile__art.is-loaded img{transform:scale(1.045)}
-  .tile:hover .tile__go,.rcard:hover .rcard__go{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+  .tile__view{display:inline-flex}
+  .tile:hover .tile__view,.tile:focus-visible .tile__view{opacity:1;transform:none;transition-duration:var(--in)}
+  .rcard:hover .rcard__go{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+  /* the wall: the title under the pointer comes forward, the rest step back */
+  .reel__item{cursor:pointer}
+  .hero__plane:has(.reel__item:hover) .reel__item{opacity:.4}
+  .hero__plane .reel__item:hover{
+    opacity:1;transform:scale(1.08);z-index:2;
+    box-shadow:0 0 0 2px var(--ruby),0 1.8rem 3.6rem #000d;
+    transition-duration:var(--in);
+  }
   .rcard:hover{border-color:var(--line-strong)}
   .rcard:hover .rcard__glow{opacity:.55}
   .rcard:hover .rcard__art img{transform:scale(1.04)}
   .rail{cursor:grab}
-  .stage:hover .stage__ctl{opacity:1;transform:none;pointer-events:auto}
-  .stage__ctl button:hover{background:#16161ce6}
   .pipe__tab:not([aria-selected="true"]):hover{color:var(--paper);transition-duration:var(--in)}
   /* the team list reads one discipline at a time */
   .crews:hover .crew:not(:hover){opacity:.42}
-  .crew:hover .pip{background:var(--ruby)}
-  .award:hover,.job:hover{padding-left:1rem;transition-duration:var(--in)}
-  .award:hover::before,.job:hover::before{transform:scaleY(1);transition-duration:var(--in)}
+  .award:hover,.job:hover,.crew:hover{padding-left:1rem;transition-duration:var(--in)}
+  .award:hover::before,.job:hover::before,.crew:hover::before{transform:scaleY(1);transition-duration:var(--in)}
   .contact__mail:hover{gap:1.4rem;color:var(--ruby);transition-duration:var(--in)}
   .contact__meta a:hover,.site-foot a:hover{color:var(--paper)}
 }
 
-/* ---------- reduced motion ---------- */
-@media (prefers-reduced-motion:reduce){
-  html:focus-within{scroll-behavior:auto}
-  *,*::before,*::after{
-    animation-duration:.01ms !important;animation-iteration-count:1 !important;
-    transition-duration:.01ms !important;transition-delay:0s !important;scroll-behavior:auto !important;
-  }
-  .js .reveal,.js .tile.reveal{opacity:1;transform:none}
-  .js .ln > span{transform:none}
-  .js .crews .pip{transform:none}
-  .tile__art{animation:none;background:#0a0a0d}
-  .tile__art img{opacity:1}
-  .tile__art::after{display:none}
-  .reel__strip{animation:none}
-  .js .reel{animation:none;opacity:1}
-  .pipe .pipe__tab::after{animation:none !important}
-  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none !important}
+/* ---------- motion off ----------
+   The header switch is the one control for everything that moves: clips,
+   reels, rolls, tilt, the ticker, the pipeline clock and every transition.
+   Motion is on by default. When a visitor turns it off the script puts
+   .motion-off on the body, and the choice is remembered. */
+body.motion-off *,body.motion-off *::before,body.motion-off *::after{
+  animation-duration:.01ms !important;animation-iteration-count:1 !important;
+  transition-duration:.01ms !important;transition-delay:0s !important;
 }
+html.no-motion:focus-within{scroll-behavior:auto}
 .js body.motion-off .reveal,
 .js body.motion-off .tile.reveal{opacity:1;transform:none}
-.js body.motion-off .ln > span{transform:none;transition:none}
-.js body.motion-off .crews .pip{transform:none;transition:none}
-body.motion-off .roll__s{transition:none}
+.js body.motion-off .ln > span{transform:none}
 .js body.motion-off .reel{animation:none;opacity:1}
-body.motion-off .motion-toggle__dot{animation:none}
+body.motion-off .tile__art{animation:none;background:#0a0a0d}
+body.motion-off .tile__art img{opacity:1}
 body.motion-off .tile__art::after{display:none}
-body.motion-off .pipe .pipe__tab::after{animation:none}
-/* with motion off the control stays visible: it is the way back in */
-body.motion-off .stage__ctl{opacity:1;transform:none;pointer-events:auto}
+body.motion-off .pipe .pipe__tab::after{animation:none !important}
+body.motion-off .motion-toggle__dot{animation:none}
+
+/* Without script there is no switch to press, so the system setting decides. */
+@media (prefers-reduced-motion:reduce){
+  html:not(.js):focus-within{scroll-behavior:auto}
+  html:not(.js) *,html:not(.js) *::before,html:not(.js) *::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
 
 /* ============================================================
    HERO CANVAS
@@ -1211,29 +1159,22 @@ body.motion-off .stage__ctl{opacity:1;transform:none;pointer-events:auto}
 
 /* ============================================================
    STAGE FOCUS PULL
-   --soft runs 0 when a clip is fully in view and 1 as it leaves.
-   The observer writes it, so a clip softens on the way out exactly
-   as it sharpened on the way in, and the same value covers the
-   hand-off from poster frame to first video frame.
+   --soft is 0 while a clip sits at the centre of the window and
+   rises to 1 as its centre is scrolled away from it, up or down.
+   The script writes it once per frame while scrolling; the short
+   linear transition only smooths the steps between frames.
    ============================================================ */
 .js .stage{--soft:1}
 .js .stage__poster,
 .js .stage video{
-  filter:blur(calc(var(--soft) * 9px));
-  transform:scale(calc(1 + var(--soft) * .045));
-  transition:opacity .5s var(--ease-out-quart),
-             filter .5s var(--ease-out-quart),
-             transform .5s var(--ease-out-quart);
+  filter:blur(calc(var(--soft) * 14px)) brightness(calc(1 - var(--soft) * .3));
+  transform:scale(calc(1 + var(--soft) * .06));
+  transition:opacity .5s var(--ease-out-quart),filter .2s linear,transform .2s linear;
 }
-/* while a clip is simply being watched there is no filter pass at all */
+/* at the centre there is no filter pass at all */
 .js .stage.is-sharp .stage__poster,
 .js .stage.is-sharp video{filter:none;transform:none}
 
-@media (prefers-reduced-motion:reduce){
-  .hero__canvas{display:none}
-  .js .stage__poster,
-  .js .stage video{filter:none;transform:none}
-}
 body.motion-off .hero__canvas{opacity:0}
 body.motion-off .stage__poster,
 body.motion-off .stage video{filter:none;transform:none}

@@ -18,16 +18,20 @@ specific titles.
 
 The job to be done: judge, quickly, whether this person can run art production
 at studio scale, and then find a way to contact them. For a production lead that
-judgment rests on three things a reel alone does not show: how much shipped, how
-the work is organised, and how many people it is organised across.
+judgment rests on things a reel alone does not show: what shipped, how the work
+is organised, and which disciplines it is organised across.
 
 ## Product Purpose
 
 Present Norair Harutyunyan's released iGaming work and production leadership as
 one page that loads anywhere, needs no login, and survives without any
 third-party host. Success is a visitor reaching the contact block with a clear
-sense of the range of the work: 28 shipped titles, cinematics, a six-stage
-pipeline, and a 25-person team across five disciplines.
+sense of the range of the work: the shipped titles, the cinematics, a six-stage
+pipeline, and the five disciplines it runs across.
+
+Two things are deliberately not published: the size of the team and a count of
+titles. The first is the studio's to disclose, not this page's; the second
+invites counting instead of looking.
 
 ## Brand Personality
 
@@ -56,8 +60,8 @@ Three words: cinematic, exact, unhurried.
    near-black and low chroma so the game thumbnails and cinematics are the only
    saturated objects in view.
 2. **Show the work, then the claim.** Key art is on screen before the first
-   scroll; featured titles, the latest releases and the full 28-game grid come
-   before any statement about process, leadership or awards.
+   scroll; featured titles, the latest releases and the full grid come before
+   any statement about process, leadership or awards.
 3. **Own every byte.** No external host, no CDN, no font service. If it renders
    today it renders in three years.
 4. **Nothing is claimed without a link.** Every title opens its details and from
@@ -69,25 +73,35 @@ Three words: cinematic, exact, unhurried.
    poster-to-video swap; the reels settle the way a reel does; a tile leans
    because a pointer is on it. Motion with no cause gets cut.
 6. **Show the production, not only the product.** A production lead's portfolio
-   names the stages, the gates and the team. They get the same finish as the
-   artwork.
+   names the stages, the gates and the disciplines. They get the same finish as
+   the artwork.
+7. **Cut what does not earn its place.** Game-design detail lives one click
+   away in the quick view, not on the page. A section says one thing.
 
 ## Accessibility & Inclusion
 
 Target WCAG 2.1 AA.
 
-- `prefers-reduced-motion` is the default state, not an afterthought: it disables
-  the hero canvas, the reels, the number roll, the tilt, the ticker, the
-  pipeline clock, the focus-pull blur and all reveals, and it decides the
-  initial position of the Motion switch.
+- Motion is on by default, by the owner's decision, and the header's Motion
+  switch is the single control that stops all of it: clips, the hero canvas,
+  the reels, the number roll, the tilt, the ticker, the pipeline clock, the
+  focus-pull blur and all reveals. The choice is remembered. This meets WCAG
+  2.2.2 (a mechanism to pause, stop or hide) but it does not follow the
+  operating system's reduced-motion setting, except when script is unavailable.
+  That is a known trade-off, and reversing it is a one-line change in
+  `site.js`: derive the default from `prefers-reduced-motion` again.
 - The pipeline advances on its own, so it follows WCAG 2.2.2 as well: hover or
   focus holds it, the first interaction stops it for good, and the Motion switch
   turns it off.
 - The quick view is a native modal dialog: focus is trapped inside it, Escape
   closes it, and focus returns to the tile that opened it.
 - The Motion switch is the pause mechanism for auto-playing clips longer than
-  five seconds (WCAG 2.2.2). Per-clip controls remain in the tab order and appear
-  on keyboard focus.
+  five seconds (WCAG 2.2.2). There are no per-clip controls. Where a browser
+  refuses autoplay (Low Power Mode, data savers), the first touch, click or key
+  anywhere on the page starts the clips.
+- The hero wall is a pointer shortcut into titles that are all in the Work grid
+  under their own names, so it is hidden from assistive tech and kept out of the
+  tab order rather than read out as forty-five unlabelled links.
 - Every interactive target is at least 44px tall. Focus is always visible, never
   removed.
 - The page is fully readable and navigable with JavaScript disabled.
