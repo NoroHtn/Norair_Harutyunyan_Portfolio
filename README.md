@@ -93,7 +93,7 @@ ffmpeg -i master.png -vf "scale=302:302:flags=lanczos,unsharp=3:3:0.55:3:3:0.0,f
 ```
 
 **Where the masters came from.** The original tiles were cut from 1254x1254
-masters Norair supplied. The six added in November 2026 were taken from the
+masters Norair supplied. The nine added in November 2026 were taken from the
 public Pascal Gaming site, and the source sizes differ:
 
 | Title | Source | Ladder |
@@ -104,8 +104,11 @@ public Pascal Gaming site, and the source sizes differ:
 | Piñata Pays | 302 | 302 native, 604 upscaled, no 906 |
 | Fortune Calico | 302 | 302 native, 604 upscaled, no 906 |
 | Franken Alive | 302 | 302 native, 604 upscaled, no 906 |
+| Juicy Storm Xmas | 302 | 302 native, 604 upscaled, no 906 |
+| Spicy Seven | 302 | 302 native, 604 upscaled, no 906 |
+| Pascal News | 302 | 302 native, 604 upscaled, no 906 |
 
-For the last three the studio only publishes a 302 tile. The 302 rung is that
+For the last six the studio only publishes a 302 tile. The 302 rung is that
 file untouched; the 604 rung is a Lanczos upscale so high-density screens do not
 fall back to bilinear; there is no 906 rung and the `srcset` does not claim one.
 They are the only soft images on the page, most visibly in the quick view.
@@ -247,8 +250,9 @@ fails and the previous version stays live.
   clients, so nothing on this page was taken from it. The career path mirrors
   `resume.html`. If the LinkedIn headline or dates differ, the résumé and the
   `.job` rows are the two places to change.
-- **Three soft thumbnails.** Piñata Pays, Fortune Calico and Franken Alive need
-  1254px masters; see the thumbnail pipeline above.
+- **Six soft thumbnails.** Piñata Pays, Fortune Calico, Franken Alive, Juicy
+  Storm Xmas, Spicy Seven and Pascal News need 1254px masters; see the thumbnail
+  pipeline above.
 - **Three titles have no public demo.** Book of the Sun, Gates of Power, and
   Jack and Cheeky Duck link to their Pascal Gaming game page only, because that
   page publishes no demo link for them.
