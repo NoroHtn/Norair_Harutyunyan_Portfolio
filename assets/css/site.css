@@ -470,8 +470,10 @@ section[id],article[id]{scroll-margin-top:calc(var(--head-h) + 1.25rem)}
   transition:opacity .6s var(--ease-out-quart);
 }
 .rcard__art{
-  display:block;margin:.8rem .8rem 0;aspect-ratio:1;overflow:hidden;
+  display:block;margin:.8rem .8rem 0;aspect-ratio:1;overflow:hidden;isolation:isolate;
   border-radius:calc(var(--radius) - .3rem);background:#0a0a0d;
+  /* the same guard as the tiles: the art scales on hover and must stay inside its corners */
+  clip-path:inset(0 round calc(var(--radius) - .3rem));
 }
 .rcard__art img{width:100%;height:100%;object-fit:cover;transition:transform .6s var(--ease-out-expo)}
 .rcard__body{display:flex;flex-direction:column;align-items:flex-start;padding:1.1rem 1.1rem 1.25rem}
@@ -534,9 +536,24 @@ section[id],article[id]{scroll-margin-top:calc(var(--head-h) + 1.25rem)}
   transition:border-color var(--out) var(--ease),transform .6s var(--ease-out-expo);
 }
 .tile.is-tilting{transition:border-color var(--in) var(--ease),transform .12s linear}
+/* Safari does not hold a rounded overflow clip on a tilted tile once a child
+   is on its own layer, and the art is, the moment it scales on hover: its
+   square corners showed past the frame. Two guards, either of which is enough.
+   The art clips itself with clip-path (below), which does not depend on the
+   tile. And this ring, in the page colour, sits just outside the rounded
+   outline and above the art; where the tile's own clip is working it is cut
+   away and never seen. */
+.tile::after{
+  content:"";position:absolute;inset:-1px;z-index:3;pointer-events:none;
+  border-radius:inherit;box-shadow:0 0 0 .5rem var(--ink);
+}
 .tile:active{--press:.99}
 .tile__art{
-  position:relative;aspect-ratio:1;overflow:hidden;
+  position:relative;aspect-ratio:1;overflow:hidden;isolation:isolate;
+  /* the tile's inner radius, on the two corners the art touches */
+  --art-r:calc(var(--radius) - 1px);
+  border-radius:var(--art-r) var(--art-r) 0 0;
+  clip-path:inset(0 round var(--art-r) var(--art-r) 0 0);
   background:linear-gradient(100deg,#0a0a0d 30%,#15161b 50%,#0a0a0d 70%) 0 0/300% 100%;
   animation:shimmer 1.6s linear infinite;
 }
